@@ -1,3 +1,5 @@
+
+#pip used for app.py
 streamlit
 plotly
 pandas
