@@ -46,6 +46,7 @@ elif st.session_state.role == "patient":
         st.Page("views/register_patient.py", title="Register Patient"),
         st.Page("views/dementia_check.py", title="Dementia Check"),
         st.Page("views/medical_report.py", title="Medical Report"),
+        st.Page("views/about.py", title="About"),
     ]
     nav = st.navigation(pages)
     nav.run()
