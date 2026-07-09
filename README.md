@@ -17,6 +17,7 @@ According to research, about 40% of dementia cases could have been prevented or 
 
 Olivia Wang, Grade 11 (Class of 2028), International Community School, Redmond, WA
 ++ everybody add their names here
+David Chen, Grade 11 (Class of 2028), Tabor Academy, Marion, MA
 
 # Video Demonstration
 
