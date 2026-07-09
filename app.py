@@ -25,6 +25,12 @@ if not st.session_state.get("_models_preloaded", False):
 st.session_state.setdefault("role", None)
 st.session_state.setdefault("clinic_authenticated", False)
 
+
+def _switch_role():
+    st.session_state.role = None
+    st.session_state.clinic_authenticated = False
+
+
 if st.session_state.role is None:
     nav = st.navigation([st.Page("views/role_select.py", title="Welcome")], position="hidden")
     nav.run()
@@ -32,11 +38,7 @@ if st.session_state.role is None:
 elif st.session_state.role == "patient":
     st.sidebar.markdown("### Patient Portal")
     st.sidebar.markdown("---")
-
-    if st.sidebar.button("Switch Role"):
-        st.session_state.role = None
-        st.rerun()
-
+    st.sidebar.button("Switch Role", on_click=_switch_role)
     st.sidebar.markdown("---")
 
     pages = [
@@ -55,12 +57,7 @@ elif st.session_state.role == "clinic":
     else:
         st.sidebar.markdown("### Clinic Portal")
         st.sidebar.markdown("---")
-
-        if st.sidebar.button("Log Out / Switch Role"):
-            st.session_state.role = None
-            st.session_state.clinic_authenticated = False
-            st.rerun()
-
+        st.sidebar.button("Log Out / Switch Role", on_click=_switch_role)
         st.sidebar.markdown("---")
 
         pages = [
