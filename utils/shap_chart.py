@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 COLOR_INCREASE = "#d03b3b"
-COLOR_DECREASE = "#0ca30c"
+COLOR_DECREASE = "#098009"
 
 
 def render_shap_breakdown(importance: pd.DataFrame, top_n: int = 5) -> go.Figure:
@@ -32,7 +32,7 @@ def render_shap_breakdown(importance: pd.DataFrame, top_n: int = 5) -> go.Figure
 
     fig.update_layout(
         title="Top factors driving this prediction",
-        xaxis_title="⬅ lowers risk        SHAP impact        raises risk ➡",
+        xaxis_title="SHAP impact on risk (negative = lowers risk, positive = raises risk)",
         height=140 + 40 * len(top),
         margin=dict(l=10, r=80, t=50, b=40),
         paper_bgcolor="rgba(0,0,0,0)",

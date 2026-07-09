@@ -3,7 +3,7 @@ import streamlit as st
 # Placeholder access code — replace with real per-clinic credentials later.
 CLINIC_ACCESS_CODE = "SAMPLE"
 
-st.markdown("<div class='bg-section'>🩺 Clinic Access</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Clinic Access</div>", unsafe_allow_html=True)
 st.write("Enter your clinic access code to continue.")
 
 code = st.text_input("Access Code", type="password")
@@ -17,7 +17,7 @@ with col1:
         else:
             st.error("Invalid access code.")
 with col2:
-    if st.button("⬅ Back", width="stretch"):
+    if st.button("Back", width="stretch"):
         st.session_state.role = None
         st.rerun()
 

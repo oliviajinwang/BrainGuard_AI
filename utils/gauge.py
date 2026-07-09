@@ -10,7 +10,7 @@ def render_risk_gauge(risk_percent: float, subtitle: str) -> go.Figure:
             title={"text": subtitle, "font": {"color": "#1A1A2E"}},
             gauge={
                 "axis": {"range": [0, 100], "tickcolor": "#1A1A2E", "tickfont": {"color": "#1A1A2E"}},
-                "bar": {"color": "#4B3F72"},
+                "bar": {"color": "#4a3aa7"},
                 "steps": [
                     {"range": [0, 30], "color": "#e5f6e5"},
                     {"range": [30, 60], "color": "#fff4e0"},

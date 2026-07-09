@@ -5,7 +5,7 @@ from utils.report import RECOMMENDATIONS
 from utils.shap_chart import render_shap_breakdown
 from src.predict_lifestyle import predict_lifestyle
 
-st.markdown("<div class='bg-section'>🧑 Dementia Risk Check</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Dementia Risk Check</div>", unsafe_allow_html=True)
 st.write("Answer a few questions about your lifestyle to see your estimated dementia risk.")
 st.caption("AI-assisted estimate based on lifestyle and health history — not a diagnosis.")
 
@@ -51,5 +51,5 @@ if "patient_result" in st.session_state:
         theme=None,
     )
     for _, row in result["importance"].head(5).iterrows():
-        icon = "⬆" if row["impact"] > 0 else "⬇"
-        st.write(f"{icon} **{row['feature']}**\n\n{row['text']}")
+        direction = "Increased risk" if row["impact"] > 0 else "Reduced risk"
+        st.write(f"**{row['feature']}** — {direction}\n\n{row['text']}")

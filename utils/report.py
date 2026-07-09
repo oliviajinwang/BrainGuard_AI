@@ -18,7 +18,7 @@ def _build_qr_image(payload: str):
     qr = qrcode.QRCode(box_size=6, border=2)
     qr.add_data(payload)
     qr.make(fit=True)
-    return qr.make_image(fill_color="#4B3F72", back_color="white")
+    return qr.make_image(fill_color="#4a3aa7", back_color="white")
 
 
 def build_pdf_report(patient: dict) -> bytes:

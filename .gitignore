@@ -4,8 +4,8 @@ venv/
 ENV/
 __pycache__/
 
-# Streamlit local configs
-.streamlit/
+# Streamlit local secrets (config.toml IS tracked - shared theme)
+.streamlit/secrets.toml
 
 # Mac system junk files
 .DS_Store

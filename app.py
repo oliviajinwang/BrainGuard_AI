@@ -5,7 +5,6 @@ from utils.layout import inject_css  #colors/design
 
 st.set_page_config(
     page_title="BrainGuard AI",
-    page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -21,19 +20,19 @@ if st.session_state.role is None:
     nav.run()
 
 elif st.session_state.role == "patient":
-    st.sidebar.markdown("### 🧑 Patient Portal")
+    st.sidebar.markdown("### Patient Portal")
     st.sidebar.markdown("---")
 
     pages = [
-        st.Page("views/patient_check.py", title="Quick Risk Check", icon="🧑", default=True),
-        st.Page("views/register_patient.py", title="Register Patient", icon="🧑‍🤝‍🧑"),
-        st.Page("views/dementia_check.py", title="Dementia Check", icon="🧠"),
-        st.Page("views/medical_report.py", title="Medical Report", icon="📄"),
+        st.Page("views/patient_check.py", title="Quick Risk Check", default=True),
+        st.Page("views/register_patient.py", title="Register Patient"),
+        st.Page("views/dementia_check.py", title="Dementia Check"),
+        st.Page("views/medical_report.py", title="Medical Report"),
     ]
     nav = st.navigation(pages)
 
     st.sidebar.markdown("---")
-    if st.sidebar.button("🔁 Switch Role"):
+    if st.sidebar.button("Switch Role"):
         st.session_state.role = None
         st.rerun()
 
@@ -44,18 +43,18 @@ elif st.session_state.role == "clinic":
         nav = st.navigation([st.Page("views/clinic_login.py", title="Clinic Login")], position="hidden")
         nav.run()
     else:
-        st.sidebar.markdown("### 🩺 Clinic Portal")
+        st.sidebar.markdown("### Clinic Portal")
         st.sidebar.markdown("---")
 
         pages = [
-            st.Page("views/dashboard.py", title="Dashboard", icon="🏠", default=True),
-            st.Page("views/history.py", title="Patient History", icon="📜"),
-            st.Page("views/about.py", title="About", icon="ℹ️"),
+            st.Page("views/dashboard.py", title="Dashboard", default=True),
+            st.Page("views/history.py", title="Patient History"),
+            st.Page("views/about.py", title="About"),
         ]
         nav = st.navigation(pages)
 
         st.sidebar.markdown("---")
-        if st.sidebar.button("🔁 Log Out / Switch Role"):
+        if st.sidebar.button("Log Out / Switch Role"):
             st.session_state.role = None
             st.session_state.clinic_authenticated = False
             st.rerun()

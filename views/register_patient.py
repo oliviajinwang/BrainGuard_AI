@@ -2,7 +2,7 @@ import streamlit as st
 
 from utils.db import insert_patient
 
-st.markdown("<div class='bg-section'>🧑‍🤝‍🧑 Register Patient</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Register Patient</div>", unsafe_allow_html=True)
 st.write("Enter the patient's personal and contact details to create a new record.")
 
 with st.form("register_patient_form", clear_on_submit=True):
@@ -43,4 +43,4 @@ if submitted:
             }
         )
         st.success(f"Patient registered successfully. Patient ID: P{patient_id:04d}")
-        st.page_link("views/dementia_check.py", label="Proceed to Dementia Check", icon="🧠")
+        st.page_link("views/dementia_check.py", label="Proceed to Dementia Check")

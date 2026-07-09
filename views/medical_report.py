@@ -3,7 +3,7 @@ import streamlit as st
 from utils.db import display_id, fetch_all_patients, get_patient
 from utils.report import build_pdf_report
 
-st.markdown("<div class='bg-section'>📄 Medical Report</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Medical Report</div>", unsafe_allow_html=True)
 st.write("Generate a professional PDF report for a registered patient.")
 
 patients_df = fetch_all_patients()
@@ -30,7 +30,7 @@ else:
     else:
         pdf_bytes = build_pdf_report(patient)
         st.download_button(
-            "⬇ Download PDF Report",
+            "Download PDF Report",
             data=pdf_bytes,
             file_name=f"{display_id(patient['id'])}_report.pdf",
             mime="application/pdf",

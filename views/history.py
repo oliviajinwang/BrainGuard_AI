@@ -2,7 +2,7 @@ import streamlit as st
 
 from utils.db import delete_patient, display_id, search_patients
 
-st.markdown("<div class='bg-section'>📜 Patient History</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Patient History</div>", unsafe_allow_html=True)
 
 col1, col2 = st.columns([3, 1])
 with col1:
@@ -33,14 +33,14 @@ else:
     st.dataframe(view_df, width="stretch", hide_index=True)
 
     st.download_button(
-        "⬇ Export CSV",
+        "Export CSV",
         data=view_df.to_csv(index=False).encode("utf-8"),
         file_name="brainguard_patients.csv",
         mime="text/csv",
     )
 
     st.markdown("---")
-    st.subheader("🗑 Delete a Patient")
+    st.subheader("Delete a Patient")
     delete_options = {f"{display_id(r['id'])} - {r['full_name']}": int(r["id"]) for _, r in results.iterrows()}
     delete_label = st.selectbox("Select patient to delete", list(delete_options.keys()), key="delete_select")
     if st.button("Delete Patient", type="primary"):

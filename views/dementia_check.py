@@ -7,12 +7,10 @@ from utils.shap_chart import render_shap_breakdown
 from src.predict import predict_patient
 from src.predict_lifestyle import predict_lifestyle
 
-COLOR_GOOD = "#0ca30c"
-COLOR_WARNING = "#fab219"
+COLOR_GOOD = "#098009"
 COLOR_CRITICAL = "#d03b3b"
-CLASS_COLORS = {"Nondemented": COLOR_GOOD, "Converted": COLOR_WARNING, "Demented": COLOR_CRITICAL}
 
-st.markdown("<div class='bg-section'>🧠 Dementia Check</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Dementia Check</div>", unsafe_allow_html=True)
 st.write("Run an AI-assisted dementia risk assessment using lifestyle or clinical data.")
 st.caption(
     "AI-assisted dementia risk estimation based on clinical and MRI-derived features."
@@ -27,7 +25,7 @@ selected_label = st.selectbox("Patient", list(patient_options.keys()))
 selected_patient_id = patient_options[selected_label]
 
 
-tab_lifestyle, tab_clinical = st.tabs(["🧑 Lifestyle Assessment", "🩺 Clinical Assessment"])
+tab_lifestyle, tab_clinical = st.tabs(["Lifestyle Assessment", "Clinical Assessment"])
 
 with tab_lifestyle:
     st.caption("Layperson-friendly fields — no MRI or imaging data required.")
@@ -83,11 +81,11 @@ with tab_lifestyle:
             theme=None,
         )
         for _, row in result["importance"].head(5).iterrows():
-            icon = "⬆" if row["impact"] > 0 else "⬇"
-            st.write(f"{icon} **{row['feature']}**\n\n{row['text']}")
+            direction = "Increased risk" if row["impact"] > 0 else "Reduced risk"
+            st.write(f"**{row['feature']}** — {direction}\n\n{row['text']}")
 
         if selected_patient_id is not None:
-            if st.button("💾 Save to Patient Record", key="save_lifestyle"):
+            if st.button("Save to Patient Record", key="save_lifestyle"):
                 update_assessment(selected_patient_id, "Lifestyle", result["fields"], result["label"], result["confidence"])
                 st.success("Saved to patient record.")
         else:
@@ -180,24 +178,20 @@ with tab_clinical:
         result = st.session_state["clinical_result"]
 
         # Prediction display
-        if result["label"] == "Demented":
-            color = COLOR_CRITICAL
-            icon = "🔴"
-        else:
-            color = COLOR_GOOD
-            icon = "🟢"
-
+        color = COLOR_CRITICAL if result["label"] == "Demented" else COLOR_GOOD
 
         st.markdown(
             f"""
             <div style="
-                padding:25px;
-                border-radius:18px;
-                background:{color}18;
-                border-left:7px solid {color};
+                padding:24px;
+                border-radius:14px;
+                background:#FFFFFF;
+                border:1px solid rgba(20,16,50,0.09);
+                border-left:4px solid {color};
+                box-shadow:0 1px 2px rgba(16,15,40,0.05);
             ">
 
-            <h2>{icon} {result['label']}</h2>
+            <span class="risk-badge" style="background:{color};">{result['label']}</span>
 
             <hr>
 
@@ -259,14 +253,10 @@ with tab_clinical:
 
         for _, row in top.iterrows():
 
-            if row["impact"] > 0:
-                icon = "🔺 Increased risk"
-            else:
-                icon = "🔻 Reduced risk"
-
+            direction = "Increased risk" if row["impact"] > 0 else "Reduced risk"
 
             st.markdown(f"""
-            ### {icon}
+            ### {direction}
 
             **{row['feature']}**
 
