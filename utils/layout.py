@@ -5,14 +5,18 @@ _CSS = """
 :root {
     --brand: #4a3aa7;
     --brand-hover: #3a2d86;
-    --bg-page: #F7F6FB;
+    --brand-blue: #1c68c4;
+    --brand-blue-hover: #15559f;
+    --brand-yellow: #F0A500;
+    --bg-page: #F5F5F7;
     --bg-card: #FFFFFF;
-    --border: rgba(20,16,50,0.09);
-    --shadow-sm: 0 1px 2px rgba(16,15,40,0.05);
-    --shadow-md: 0 4px 16px rgba(16,15,40,0.08);
-    --ink-primary: #1A1A2E;
-    --ink-secondary: #52515E;
-    --ink-muted: #666478;
+    --bg-muted: #F5F5F7;
+    --border: rgba(0,0,0,0.12);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+    --ink-primary: #000000;
+    --ink-secondary: #3D3D42;
+    --ink-muted: #63636B;
     --good: #098009;
     --critical: #d03b3b;
     --radius-lg: 14px;
@@ -185,6 +189,47 @@ div[data-testid="stDataFrame"] {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: white !important;
+}
+
+/* Starting-screen role cards: white outline buttons for max contrast
+   against the card, instead of a filled button blending into the page */
+.st-key-patient_cta button, .st-key-clinic_cta button {
+    background: white;
+    border: 2px solid var(--brand);
+}
+.st-key-patient_cta button p, .st-key-patient_cta button span, .st-key-patient_cta button div,
+.st-key-clinic_cta button p, .st-key-clinic_cta button span, .st-key-clinic_cta button div {
+    color: var(--brand) !important;
+}
+.st-key-patient_cta button:hover, .st-key-clinic_cta button:hover {
+    background: var(--brand);
+}
+.st-key-patient_cta button:hover p, .st-key-patient_cta button:hover span, .st-key-patient_cta button:hover div,
+.st-key-clinic_cta button:hover p, .st-key-clinic_cta button:hover span, .st-key-clinic_cta button:hover div {
+    color: white !important;
+}
+
+.accent-bar {
+    display: block;
+    height: 4px;
+    width: 48px;
+    border-radius: 999px;
+    margin-bottom: 12px;
+}
+.accent-bar-blue { background: var(--brand-blue); }
+.accent-bar-violet { background: var(--brand); }
+
+.tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 4px 0 8px 0;
+}
+.tag-yellow {
+    background: var(--brand-yellow);
+    color: #000000;
 }
 
 hr {
