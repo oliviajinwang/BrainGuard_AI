@@ -5,6 +5,7 @@ from utils.gauge import render_risk_gauge
 from utils.report import RECOMMENDATIONS
 from utils.shap_chart import render_shap_breakdown
 from src.predict import predict_patient
+from src.predict_lifestyle import predict_lifestyle
 
 COLOR_GOOD = "#0ca30c"
 COLOR_WARNING = "#fab219"
@@ -42,7 +43,27 @@ with tab_lifestyle:
         ls_smoking = st.toggle("Smoking", key="ls_smoke")
 
     if st.button("Run Lifestyle Assessment", type="primary", key="run_lifestyle"):
-        st.info("Lifestyle AI model coming soon.")
+        patient = {
+            "age": ls_age,
+            "gender_male": int(ls_gender == "Male"),
+            "education_years": ls_education,
+            "diabetes": int(ls_diabetes),
+            "hypertension": int(ls_hypertension),
+            "high_cholesterol": int(ls_cholesterol),
+            "smoking": int(ls_smoking),
+        }
+
+        result = predict_lifestyle(patient)
+        result["fields"] = {
+            "age": ls_age,
+            "education_years": ls_education,
+            "diabetes": int(ls_diabetes),
+            "hypertension": int(ls_hypertension),
+            "high_cholesterol": int(ls_cholesterol),
+            "smoking": int(ls_smoking),
+        }
+
+        st.session_state["lifestyle_result"] = result
 
     if "lifestyle_result" in st.session_state:
         result = st.session_state["lifestyle_result"]
@@ -54,6 +75,17 @@ with tab_lifestyle:
         )
         st.caption(f"Model prediction: **{result['label']}** ({result['confidence']:.1f}% confidence)")
         st.info(RECOMMENDATIONS.get(result["label"], ""))
+
+        st.subheader("Why did the model make this prediction?")
+        st.plotly_chart(
+            render_shap_breakdown(result["importance"], top_n=5),
+            width="stretch",
+            theme=None,
+        )
+        for _, row in result["importance"].head(5).iterrows():
+            icon = "⬆" if row["impact"] > 0 else "⬇"
+            st.write(f"{icon} **{row['feature']}**\n\n{row['text']}")
+
         if selected_patient_id is not None:
             if st.button("💾 Save to Patient Record", key="save_lifestyle"):
                 update_assessment(selected_patient_id, "Lifestyle", result["fields"], result["label"], result["confidence"])

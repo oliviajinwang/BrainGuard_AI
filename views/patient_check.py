@@ -1,12 +1,13 @@
 import streamlit as st
 
 from utils.gauge import render_risk_gauge
-from utils.mock_predict import get_mock_prediction
 from utils.report import RECOMMENDATIONS
+from utils.shap_chart import render_shap_breakdown
+from src.predict_lifestyle import predict_lifestyle
 
 st.markdown("<div class='bg-section'>🧑 Dementia Risk Check</div>", unsafe_allow_html=True)
 st.write("Answer a few questions about your lifestyle to see your estimated dementia risk.")
-st.caption("Predictions shown here are placeholder values until the trained model is connected.")
+st.caption("AI-assisted estimate based on lifestyle and health history — not a diagnosis.")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -20,8 +21,16 @@ with col2:
     smoking = st.toggle("Smoking")
 
 if st.button("Check My Risk", type="primary"):
-    label, confidence = get_mock_prediction("lifestyle")
-    st.session_state["patient_result"] = {"label": label, "confidence": confidence}
+    patient = {
+        "age": age,
+        "gender_male": int(gender == "Male"),
+        "education_years": education_years,
+        "diabetes": int(diabetes),
+        "hypertension": int(hypertension),
+        "high_cholesterol": int(high_cholesterol),
+        "smoking": int(smoking),
+    }
+    st.session_state["patient_result"] = predict_lifestyle(patient)
 
 if "patient_result" in st.session_state:
     result = st.session_state["patient_result"]
@@ -34,5 +43,13 @@ if "patient_result" in st.session_state:
     st.caption(f"Model prediction: **{result['label']}** ({result['confidence']:.1f}% confidence)")
     st.info(RECOMMENDATIONS.get(result["label"], ""))
 
-st.markdown("---")
-st.info("🔬 Risk factor breakdown (SHAP) — coming once the model is trained.")
+    st.markdown("---")
+    st.subheader("Why did the model make this prediction?")
+    st.plotly_chart(
+        render_shap_breakdown(result["importance"], top_n=5),
+        width="stretch",
+        theme=None,
+    )
+    for _, row in result["importance"].head(5).iterrows():
+        icon = "⬆" if row["impact"] > 0 else "⬇"
+        st.write(f"{icon} **{row['feature']}**\n\n{row['text']}")
