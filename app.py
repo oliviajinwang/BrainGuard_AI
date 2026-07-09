@@ -12,6 +12,16 @@ st.set_page_config(
 init_db()  # creates database.db here if it doesn't exist yet
 inject_css()  # applies the CSS design to the page
 
+if not st.session_state.get("_models_preloaded", False):
+    # First-ever load in this browser session: import the prediction
+    # modules now (Welcome screen) instead of leaving it as a hidden
+    # ~5s pause the first time a user opens a prediction page (joblib.load
+    # transitively imports xgboost/shap/scikit-learn on first use).
+    with st.spinner("Loading prediction models..."):
+        import src.predict  # noqa: F401
+        import src.predict_lifestyle  # noqa: F401
+    st.session_state["_models_preloaded"] = True
+
 st.session_state.setdefault("role", None)
 st.session_state.setdefault("clinic_authenticated", False)
 
