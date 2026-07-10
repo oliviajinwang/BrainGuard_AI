@@ -6,12 +6,12 @@ import xgboost as xgb
 import shap
 import joblib
 import os
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_score, recall_score, f1_score
 from sklearn.metrics import roc_auc_score, precision_recall_curve
-from sklearn.model_selection import cross_val_score, cross_val_predict, StratifiedKFold
+from sklearn.model_selection import cross_val_score, cross_val_predict, StratifiedGroupKFold
 from sklearn.calibration import CalibratedClassifierCV
 import matplotlib
 matplotlib.use("Agg")
@@ -28,18 +28,25 @@ def train_pure_clinical_model(clean_data_path):
     # Assumes 'dementia_status' contains your numeric targets (0, 1, 2)
 
     y = df['dementia_status']
+    groups = df['subject_id']
 
     X = df.drop(columns=[
         'dementia_status',
         'subject_id',
         'mri_id'
     ])
-    
-    
-    # 2. Stratified Train/Test Split (preserves the ratio of classes 0, 1, and 2)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+
+
+    # 2. Group-aware Train/Test Split. OASIS-2 has 373 sessions from only
+    # 150 subjects with repeat visits -- a random/stratified row split lets
+    # the same subject land in both train and test, so the model partly
+    # memorizes people instead of learning disease signal. GroupShuffleSplit
+    # keeps every visit for a given Subject ID entirely on one side.
+    gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+    train_idx, test_idx = next(gss.split(X, y, groups=groups))
+    X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+    y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+    groups_train = groups.iloc[train_idx]
     
     print(f"📊 Training Matrix Size: {X_train.shape[0]} patients")
     print(f"📊 Testing Matrix Size: {X_test.shape[0]} patients")
@@ -101,12 +108,14 @@ def train_pure_clinical_model(clean_data_path):
     # print("\nFeature Importance")
     # print(importance)
     
-    # Cross-Validation for Model Robustness
+    # Cross-Validation for Model Robustness (group-aware so a subject's
+    # repeat visits never split across the train/validation side of a fold)
     scores = cross_val_score(
         model,
         X,
         y,
-        cv=5,
+        groups=groups,
+        cv=StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42),
         scoring="accuracy"
     )
     print("\n5-Fold Cross Validation")
@@ -145,7 +154,8 @@ def train_pure_clinical_model(clean_data_path):
         ),
         X_train,
         y_train,
-        cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
+        groups=groups_train,
+        cv=StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42),
         method="predict_proba",
         n_jobs=-1,
     )[:, 1]
