@@ -17,10 +17,6 @@ inject_css()  # applies the CSS design to the page -- must run before the
               # loaded yet and it will render unstyled.
 
 if not st.session_state.get("_models_preloaded", False):
-    # First-ever load in this browser session: import the prediction
-    # modules now (Welcome screen) instead of leaving it as a hidden
-    # ~5s pause the first time a user opens a prediction page (joblib.load
-    # transitively imports xgboost/shap/scikit-learn on first use).
     with st.spinner("Loading prediction models..."):
         import src.predict  # noqa: F401
         import src.predict_lifestyle  # noqa: F401
@@ -33,6 +29,8 @@ st.session_state.setdefault("_switching", None)
 st.session_state.setdefault("selected_patient", None)
 st.session_state.setdefault("selected_patient_id", None)
 st.session_state.setdefault("selected_patient_record", None)
+st.session_state.setdefault("patient_record", None)
+st.session_state.setdefault("patient_record_id", None)
 st.session_state.setdefault("history_last_selection", None)
 st.session_state.setdefault("reload_patient_record", False)
 
@@ -41,12 +39,6 @@ def _start_switch_role():
     st.session_state._switching = "overlay"
 
 
-# Two-phase switch: the on_click callback alone (reset role, rerun) already
-# stops the dashboard's Python code from re-executing, but the browser can
-# still lag in pruning the *previous* render's stale DOM (verified: caught a
-# brief dashboard/role-select overlap in ~2 of 6 rapid trials). An opaque
-# full-viewport overlay guarantees nothing stale is visible regardless of
-# that reconciliation timing, instead of just hoping it resolves fast enough.
 if st.session_state._switching == "overlay":
     hide_sidebar()
     with st.container(key="switching_overlay"):
@@ -61,6 +53,8 @@ if st.session_state._switching == "commit":
     st.session_state.selected_patient = None
     st.session_state.selected_patient_id = None
     st.session_state.selected_patient_record = None
+    st.session_state.patient_record = None
+    st.session_state.patient_record_id = None
     st.session_state.history_last_selection = None
     st.session_state.reload_patient_record = True
     st.session_state._switching = None
@@ -75,8 +69,6 @@ if st.session_state.role is None or (
 
 if st.session_state.role is None:
     if st.session_state.show_about:
-        # Independent of the patient/clinic portals: reachable straight
-        # from the Welcome screen's "About" link, with its own way back.
         nav = st.navigation([st.Page("views/about.py", title="About")], position="hidden")
         nav.run()
     else:

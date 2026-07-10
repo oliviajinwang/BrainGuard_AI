@@ -43,4 +43,5 @@ if submitted:
             }
         )
         st.success(f"Patient registered successfully. Patient ID: P{patient_id:04d}")
+        st.info("This patient will now appear in Patient History after registration.")
         st.page_link("views/patient_check.py", label="Proceed to Quick Risk Check")

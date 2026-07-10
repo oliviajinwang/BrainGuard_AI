@@ -3,7 +3,7 @@ from datetime import date, datetime
 import streamlit as st
 
 from utils.risk_profile import render_shared_risk_profile_fields
-from utils.sample_patient_data import ensure_sample_patient_record, parse_iso_date, save_sample_patient_record
+from utils.patient_record import ensure_patient_record, parse_iso_date, save_patient_record_session
 
 _EHR_CSS = """
 <style>
@@ -57,10 +57,10 @@ def _render_overview_sidebar(record: dict) -> None:
         overview["assessment_type"] = st.text_input("Assessment Type", overview["assessment_type"])
         overview["prediction_label"] = st.selectbox(
             "Dementia Risk Prediction",
-            ["Low Risk", "Mild Cognitive Impairment", "Early-stage Dementia", "Moderate Dementia", "High Risk"],
-            index=["Low Risk", "Mild Cognitive Impairment", "Early-stage Dementia", "Moderate Dementia", "High Risk"].index(overview["prediction_label"])
-            if overview["prediction_label"] in ["Low Risk", "Mild Cognitive Impairment", "Early-stage Dementia", "Moderate Dementia", "High Risk"]
-            else 2,
+            ["Pending", "Low Risk", "Mild Cognitive Impairment", "Early-stage Dementia", "Moderate Dementia", "High Risk"],
+            index=["Pending", "Low Risk", "Mild Cognitive Impairment", "Early-stage Dementia", "Moderate Dementia", "High Risk"].index(overview.get("prediction_label") or "Pending")
+            if (overview.get("prediction_label") or "Pending") in ["Pending", "Low Risk", "Mild Cognitive Impairment", "Early-stage Dementia", "Moderate Dementia", "High Risk"]
+            else 0,
         )
         overview["confidence"] = st.number_input("Confidence Score", min_value=0.0, max_value=1.0, value=float(overview["confidence"]), step=0.01, format="%.2f")
         overview["registration_date"] = st.date_input(
@@ -148,18 +148,19 @@ def _render_previous_visits(record: dict) -> None:
 def _render_labs(record: dict) -> None:
     with _card("Laboratory & Imaging"):
         labs = record["labs"]
-        tab_mri, tab_mmse, tab_vitals, tab_labs = st.tabs(["MRI", "MMSE", "Vitals", "Blood Work"])
+        tab_mri, tab_mmse, tab_vitals, tab_labs = st.tabs(["MRI / CT", "Cognitive Scores", "Vitals", "Blood Work"])
 
         with tab_mri:
-            labs["mri_brain"] = st.text_area("MRI Brain", labs["mri_brain"], height=100)
+            labs["mri_brain"] = st.text_area("MRI / CT Findings", labs.get("mri_brain", ""), height=100)
         with tab_mmse:
-            labs["mmse_scores"] = st.text_area("MMSE Scores", labs["mmse_scores"], height=100)
+            labs["mmse_scores"] = st.text_area("MMSE Scores", labs.get("mmse_scores", ""), height=80)
+            labs["moca_scores"] = st.text_area("MoCA Scores", labs.get("moca_scores", ""), height=80)
         with tab_vitals:
-            labs["blood_pressure"] = st.text_input("Blood Pressure", labs["blood_pressure"])
+            labs["blood_pressure"] = st.text_input("Blood Pressure", labs.get("blood_pressure", ""))
         with tab_labs:
-            labs["blood_tests"] = st.text_area("Blood Tests", labs["blood_tests"], height=80)
-            labs["vitamin_b12"] = st.text_input("Vitamin B12", labs["vitamin_b12"])
-            labs["thyroid_function"] = st.text_input("Thyroid Function", labs["thyroid_function"])
+            labs["blood_tests"] = st.text_area("Blood Tests", labs.get("blood_tests", ""), height=80)
+            labs["vitamin_b12"] = st.text_input("Vitamin B12", labs.get("vitamin_b12", ""))
+            labs["thyroid_function"] = st.text_input("Thyroid Function", labs.get("thyroid_function", ""))
 
 
 def _render_doctor_notes(record: dict) -> None:
@@ -180,6 +181,52 @@ def _render_doctor_notes(record: dict) -> None:
             st.rerun()
 
 
+def _render_dementia_assessments(record: dict) -> None:
+    record.setdefault("dementia_assessments", [])
+    with _card("Previous Dementia Assessments"):
+        for index, assessment in enumerate(record["dementia_assessments"]):
+            with st.expander(f"Assessment {index + 1}", expanded=index == 0):
+                assessment["date"] = st.date_input(
+                    "Assessment date",
+                    value=parse_iso_date(assessment.get("date", "")),
+                    key=f"assess_date_{index}",
+                ).isoformat()
+                assessment["tool"] = st.selectbox(
+                    "Assessment tool",
+                    ["MMSE", "MoCA", "Clinical Review"],
+                    index=["MMSE", "MoCA", "Clinical Review"].index(assessment.get("tool", "MMSE"))
+                    if assessment.get("tool") in ["MMSE", "MoCA", "Clinical Review"]
+                    else 0,
+                    key=f"assess_tool_{index}",
+                )
+                assessment["score"] = st.text_input("Score / Result", assessment.get("score", ""), key=f"assess_score_{index}")
+                assessment["notes"] = st.text_area("Notes", assessment.get("notes", ""), key=f"assess_notes_{index}", height=80)
+                if st.button("Remove assessment", key=f"assess_remove_{index}"):
+                    record["dementia_assessments"].pop(index)
+                    st.rerun()
+        if st.button("Add dementia assessment", key="assess_add"):
+            record["dementia_assessments"].append({"date": date.today().isoformat(), "tool": "MMSE", "score": "", "notes": ""})
+            st.rerun()
+
+
+def _render_follow_up_plans(record: dict) -> None:
+    record.setdefault("follow_up_plans", [])
+    with _card("Follow-up Plans"):
+        for index, plan in enumerate(record["follow_up_plans"]):
+            record["follow_up_plans"][index] = st.text_area(
+                f"Follow-up plan {index + 1}",
+                plan,
+                key=f"followup_{index}",
+                height=80,
+            )
+            if st.button("Remove follow-up plan", key=f"followup_remove_{index}"):
+                record["follow_up_plans"].pop(index)
+                st.rerun()
+        if st.button("Add follow-up plan", key="followup_add"):
+            record["follow_up_plans"].append("")
+            st.rerun()
+
+
 def _appointment_dates(record: dict) -> list[date]:
     return sorted({parse_iso_date(item["date"]) for item in record["appointments"]})
 
@@ -190,8 +237,8 @@ def _render_calendar_sidebar(record: dict) -> None:
         st.caption("Select a date to review, add, or edit appointments.")
         selected_date = st.date_input(
             "Calendar date",
-            value=st.session_state.sample_calendar_date,
-            key="sample_calendar_date",
+            value=st.session_state.calendar_date,
+            key="calendar_date",
         )
 
         if appointment_dates:
@@ -278,7 +325,7 @@ if not st.session_state.get("selected_patient_id"):
 
 st.markdown("<div class='bg-section'>Patient Detail</div>", unsafe_allow_html=True)
 
-record = ensure_sample_patient_record()
+record = ensure_patient_record()
 overview = record["overview"]
 
 if st.button("Back to Patient History"):
@@ -292,8 +339,9 @@ with header_left:
     st.markdown(f"## {overview['name']}")
     st.caption(f"Patient ID {overview['patient_id']} · Registered {overview['registration_date']}")
 with header_right:
-    st.metric("Dementia Risk", overview["prediction_label"])
-    st.metric("Confidence", f"{overview['confidence']:.0%}")
+    st.metric("Dementia Risk", overview.get("prediction_label") or "Pending")
+    confidence = overview.get("confidence") or 0.0
+    st.metric("Confidence", f"{confidence:.0%}" if confidence else "—")
 
 left_col, main_col, right_col = st.columns([1.05, 2.1, 1.05], gap="medium")
 
@@ -305,9 +353,11 @@ with left_col:
 
 with main_col:
     _render_medical_history(record)
+    _render_dementia_assessments(record)
     _render_previous_visits(record)
     _render_labs(record)
     _render_doctor_notes(record)
+    _render_follow_up_plans(record)
 
 with right_col:
     _render_calendar_sidebar(record)
@@ -317,7 +367,7 @@ st.markdown("---")
 save_col, _ = st.columns([1, 3])
 with save_col:
     if st.button("Save Changes", type="primary", use_container_width=True):
-        save_sample_patient_record(record)
+        save_patient_record_session(record)
         st.session_state.patient_save_success = True
         saved_at = datetime.now().strftime("%Y-%m-%d %H:%M")
         st.session_state.patient_save_message = f"Patient record successfully updated. Last saved {saved_at}."

@@ -63,22 +63,52 @@ def init_db() -> None:
     _ensure_extended_record_column(conn)
     conn.commit()
     conn.close()
-    seed_sample_patient()
+
+
+def _build_extended_record(patient_id: int, data: dict[str, Any]) -> dict[str, Any]:
+    from utils.patient_record import build_patient_record_from_row
+
+    row = {
+        "id": patient_id,
+        "full_name": data.get("full_name", ""),
+        "gender": data.get("gender", ""),
+        "age": data.get("age"),
+        "phone": data.get("phone", ""),
+        "email": data.get("email", ""),
+        "address": data.get("address", ""),
+        "emergency_contact": data.get("emergency_contact", ""),
+        "registration_date": data.get("registration_date", date.today().isoformat()),
+        "assessment_type": data.get("assessment_type"),
+        "prediction_label": data.get("prediction_label"),
+        "confidence": data.get("confidence"),
+        "education_years": data.get("education_years"),
+        "diabetes": data.get("diabetes"),
+        "hypertension": data.get("hypertension"),
+        "high_cholesterol": data.get("high_cholesterol"),
+        "smoking": data.get("smoking"),
+    }
+    return build_patient_record_from_row(row)
 
 
 def insert_patient(data: dict) -> int:
+    registration_date = date.today().isoformat()
     conn = get_connection()
     cur = conn.execute(
         """INSERT INTO patients
            (full_name, gender, age, phone, email, address, emergency_contact, registration_date)
            VALUES (:full_name, :gender, :age, :phone, :email, :address, :emergency_contact, :registration_date)""",
-        {**data, "registration_date": date.today().isoformat()},
+        {**data, "registration_date": registration_date},
+    )
+    patient_id = int(cur.lastrowid)
+    extended_record = _build_extended_record(patient_id, {**data, "registration_date": registration_date})
+    conn.execute(
+        "UPDATE patients SET extended_record = ? WHERE id = ?",
+        (json.dumps(extended_record), patient_id),
     )
     conn.commit()
-    new_id = cur.lastrowid
     conn.close()
     fetch_all_patients.clear()
-    return new_id
+    return patient_id
 
 
 def update_assessment(patient_id: int, assessment_type: str, fields: dict, prediction_label: str, confidence: float) -> None:
@@ -113,109 +143,51 @@ def get_patient(patient_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def get_sample_patient_id() -> int | None:
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT id FROM patients WHERE full_name = 'Sample' OR id = 1 ORDER BY id LIMIT 1"
-    ).fetchone()
-    conn.close()
-    return int(row["id"]) if row else None
-
-
-def seed_sample_patient() -> int:
-    from utils.sample_patient_data import default_sample_patient_record
-
-    record = default_sample_patient_record()
-    overview = record["overview"]
-    risk = record["risk_profile"]
-    existing_id = get_sample_patient_id()
-
-    conn = get_connection()
-    params = {
-        "full_name": overview["name"],
-        "gender": overview["gender"],
-        "age": int(overview["age"]),
-        "assessment_type": overview["assessment_type"],
-        "prediction_label": overview["prediction_label"],
-        "confidence": float(overview["confidence"]),
-        "registration_date": overview["registration_date"],
-        "education_years": int(risk["education_years"]),
-        "diabetes": int(bool(risk["diabetes"])),
-        "hypertension": int(bool(risk["hypertension"])),
-        "high_cholesterol": int(bool(risk["high_cholesterol"])),
-        "smoking": int(bool(risk["smoking"])),
-        "extended_record": json.dumps(record),
-    }
-
-    if existing_id is None:
-        cur = conn.execute(
-            """INSERT INTO patients
-               (full_name, gender, age, assessment_type, prediction_label, confidence,
-                registration_date, education_years, diabetes, hypertension,
-                high_cholesterol, smoking, extended_record)
-               VALUES
-               (:full_name, :gender, :age, :assessment_type, :prediction_label, :confidence,
-                :registration_date, :education_years, :diabetes, :hypertension,
-                :high_cholesterol, :smoking, :extended_record)""",
-            params,
-        )
-        patient_id = int(cur.lastrowid)
-    else:
-        params["id"] = existing_id
-        row = conn.execute("SELECT extended_record FROM patients WHERE id = ?", (existing_id,)).fetchone()
-        if not row or not row["extended_record"]:
-            conn.execute(
-                """UPDATE patients SET
-                   full_name = :full_name, gender = :gender, age = :age,
-                   assessment_type = :assessment_type, prediction_label = :prediction_label,
-                   confidence = :confidence, registration_date = :registration_date,
-                   education_years = :education_years, diabetes = :diabetes,
-                   hypertension = :hypertension, high_cholesterol = :high_cholesterol,
-                   smoking = :smoking, extended_record = :extended_record
-                   WHERE id = :id""",
-                params,
-            )
-        patient_id = existing_id
-
-    conn.commit()
-    conn.close()
-    return patient_id
-
-
 def _apply_row_to_record(row: dict[str, Any], record: dict[str, Any]) -> dict[str, Any]:
+    from utils.patient_record import default_clinical_sections
+
     overview = record.setdefault("overview", {})
     risk = record.setdefault("risk_profile", {})
+    contact = record.setdefault("contact", {})
 
     overview["name"] = row.get("full_name") or overview.get("name", "")
     overview["gender"] = row.get("gender") or overview.get("gender", "")
     overview["age"] = row.get("age") if row.get("age") is not None else overview.get("age", 0)
     overview["patient_id"] = display_id(int(row["id"]))
     overview["assessment_type"] = row.get("assessment_type") or overview.get("assessment_type", "")
-    overview["prediction_label"] = row.get("prediction_label") or overview.get("prediction_label", "")
+    overview["prediction_label"] = row.get("prediction_label") or overview.get("prediction_label", "Pending")
     overview["confidence"] = float(row.get("confidence") if row.get("confidence") is not None else overview.get("confidence", 0.0))
     overview["registration_date"] = row.get("registration_date") or overview.get("registration_date", date.today().isoformat())
 
-    risk["education_years"] = row.get("education_years") if row.get("education_years") is not None else risk.get("education_years", 0)
+    risk["education_years"] = int(row.get("education_years") or risk.get("education_years", 0))
     risk["diabetes"] = bool(row.get("diabetes"))
     risk["hypertension"] = bool(row.get("hypertension"))
     risk["high_cholesterol"] = bool(row.get("high_cholesterol"))
     risk["smoking"] = bool(row.get("smoking"))
+
+    contact["phone"] = row.get("phone") or contact.get("phone", "")
+    contact["email"] = row.get("email") or contact.get("email", "")
+    contact["address"] = row.get("address") or contact.get("address", "")
+    contact["emergency_contact"] = row.get("emergency_contact") or contact.get("emergency_contact", "")
+
+    for key, value in default_clinical_sections().items():
+        record.setdefault(key, value)
 
     record["patient_db_id"] = int(row["id"])
     return record
 
 
 def load_patient_record(patient_id: int) -> dict[str, Any]:
-    from utils.sample_patient_data import default_sample_patient_record
+    from utils.patient_record import build_patient_record_from_row
 
     row = get_patient(patient_id)
     if not row:
-        return default_sample_patient_record()
+        raise ValueError(f"Patient {patient_id} not found")
 
     if row.get("extended_record"):
         record = json.loads(row["extended_record"])
     else:
-        record = default_sample_patient_record()
+        record = build_patient_record_from_row(row)
 
     return _apply_row_to_record(row, record)
 
@@ -236,38 +208,36 @@ def save_patient_record(patient_id: int, record: dict[str, Any]) -> None:
             overview["name"],
             overview["gender"],
             int(overview["age"]),
-            overview["assessment_type"],
-            overview["prediction_label"],
-            float(overview["confidence"]),
+            overview.get("assessment_type") or None,
+            overview.get("prediction_label") or None,
+            float(overview.get("confidence") or 0.0),
             overview["registration_date"],
-            int(risk["education_years"]),
-            int(bool(risk["diabetes"])),
-            int(bool(risk["hypertension"])),
-            int(bool(risk["high_cholesterol"])),
-            int(bool(risk["smoking"])),
+            int(risk.get("education_years") or 0),
+            int(bool(risk.get("diabetes"))),
+            int(bool(risk.get("hypertension"))),
+            int(bool(risk.get("high_cholesterol"))),
+            int(bool(risk.get("smoking"))),
             json.dumps(record),
             patient_id,
         ),
     )
     conn.commit()
     conn.close()
+    fetch_all_patients.clear()
 
 
-def query_matches_sample_patient(query: str, sample_id: int | None) -> bool:
-    if sample_id is None:
-        return query.strip().lower() == "sample"
-
-    row = get_patient(sample_id)
-    if not row:
-        return query.strip().lower() == "sample"
-
+def resolve_patient_id_from_query(query: str) -> int | None:
     q = query.strip().lower()
-    return q in {
-        "sample",
-        str(sample_id),
-        display_id(sample_id).lower(),
-        str(row.get("full_name", "")).lower(),
-    }
+    if not q:
+        return None
+
+    df = fetch_all_patients()
+    for _, row in df.iterrows():
+        patient_id = int(row["id"])
+        name = str(row.get("full_name", "")).lower()
+        if q == name or q == display_id(patient_id).lower() or q == str(patient_id):
+            return patient_id
+    return None
 
 
 def search_patients(query: str = "", risk_filter: str = "All") -> pd.DataFrame:
@@ -283,7 +253,7 @@ def search_patients(query: str = "", risk_filter: str = "All") -> pd.DataFrame:
     elif risk_filter == "Low Risk":
         df = df[df["prediction_label"].isin(LOW_RISK_LABELS)]
     elif risk_filter == "Pending":
-        df = df[df["prediction_label"].isna()]
+        df = df[df["prediction_label"].isna() | (df["prediction_label"] == "Pending") | (df["prediction_label"] == "")]
     return df
 
 
