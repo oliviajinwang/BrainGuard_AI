@@ -10,3 +10,4 @@ shap
 joblib
 scikit-learn
 matplotlib
+unidecode

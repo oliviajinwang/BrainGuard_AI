@@ -2,8 +2,19 @@ import io
 
 import qrcode
 from fpdf import FPDF
+from unidecode import unidecode
 
 from .db import display_id
+
+
+def _pdf_safe(value) -> str:
+    # The built-in Helvetica core font only supports Latin-1/WinAnsi --
+    # any character outside that (e.g. CJK in a patient's name) raises
+    # FPDFUnicodeEncodingException and crashes report generation. Rather
+    # than bundling a multi-MB Unicode font just to avoid a crash,
+    # transliterate to the closest ASCII representation so the report
+    # always renders, even if non-Latin names lose their original glyphs.
+    return unidecode(str(value))
 
 RECOMMENDATIONS = {
     "Low Risk": "Continue healthy lifestyle habits and schedule routine annual check-ups.",
@@ -54,7 +65,7 @@ def build_pdf_report(patient: dict) -> bytes:
         ("Registration Date", patient.get("registration_date") or "-"),
     ]:
         pdf.cell(50, 7, label)
-        pdf.cell(0, 7, str(value), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 7, _pdf_safe(value), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     prediction = patient.get("prediction_label")
@@ -69,7 +80,7 @@ def build_pdf_report(patient: dict) -> bytes:
         ("Confidence", f"{confidence:.1f}%" if confidence is not None else "-"),
     ]:
         pdf.cell(50, 7, label)
-        pdf.cell(0, 7, str(value), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 7, _pdf_safe(value), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     pdf.set_font("Helvetica", "B", 13)
