@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -24,6 +26,17 @@ pending = int(df["prediction_label"].isna().sum()) if total_patients else 0
 average_age = round(df["age"].mean(), 1) if total_patients else 0
 confidence_values = df["confidence"].dropna() if total_patients else []
 average_confidence = round(confidence_values.mean(), 1) if len(confidence_values) else 0
+
+today = date.today()
+if total_patients:
+    reg_dates = pd.to_datetime(df["registration_date"], errors="coerce").dt.date
+    new_this_week = int(((reg_dates >= today - timedelta(days=7)) & (reg_dates <= today)).sum())
+    new_prior_week = int(
+        ((reg_dates >= today - timedelta(days=14)) & (reg_dates < today - timedelta(days=7))).sum()
+    )
+else:
+    new_this_week = 0
+    new_prior_week = 0
 
 
 def _bar_figure(categories, values, colors, y_title="Patients"):
@@ -71,20 +84,22 @@ st.markdown("---")
 
 st.markdown("<div class='bg-section'>Dashboard Analytics</div>", unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 with c1:
     st.metric("Total Patients", total_patients)
 with c2:
     st.metric("High Risk", high_risk)
 with c3:
     st.metric("Low Risk", low_risk)
-
-c4, c5, c6 = st.columns(3)
 with c4:
-    st.metric("Pending", pending)
+    st.metric("New This Week", new_this_week, delta=new_this_week - new_prior_week)
+
+c5, c6, c7 = st.columns(3)
 with c5:
-    st.metric("Average Age", average_age)
+    st.metric("Pending", pending)
 with c6:
+    st.metric("Average Age", average_age)
+with c7:
     st.metric("Avg Confidence", f"{average_confidence}%")
 
 st.markdown("---")
