@@ -43,4 +43,4 @@ if submitted:
             }
         )
         st.success(f"Patient registered successfully. Patient ID: P{patient_id:04d}")
-        st.page_link("views/dementia_check.py", label="Proceed to Dementia Check")
+        st.page_link("views/patient_check.py", label="Proceed to Quick Risk Check")
