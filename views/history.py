@@ -1,6 +1,6 @@
 import streamlit as st
 
-from utils.db import display_id, fetch_all_patients, get_patient, get_sample_patient_id, load_patient_record, query_matches_sample_patient, search_patients
+from utils.db import delete_patient, display_id, fetch_all_patients, get_patient, get_sample_patient_id, load_patient_record, query_matches_sample_patient, search_patients
 
 
 def _build_search_suggestions() -> list[str]:
@@ -23,7 +23,7 @@ sample_patient_id = get_sample_patient_id()
 
 if st.session_state.pop("patient_save_success", False):
     saved_at = st.session_state.pop("patient_save_message", "")
-    st.success(saved_at or "✅ Patient record successfully updated.")
+    st.success(saved_at or "Patient record successfully updated.")
 
 st.markdown("<div class='bg-section'>Patient History</div>", unsafe_allow_html=True)
 
@@ -90,7 +90,6 @@ else:
         file_name="brainguard_patients.csv",
         mime="text/csv",
     )
-<<<<<<< HEAD
 
     st.markdown("---")
     st.subheader("Delete a Patient")
@@ -100,5 +99,3 @@ else:
         delete_patient(delete_options[delete_label])
         st.success("Patient deleted.")
         st.rerun()
-=======
->>>>>>> bc8dffb (add the patient detail page)

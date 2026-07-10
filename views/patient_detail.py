@@ -197,7 +197,7 @@ def _render_calendar_sidebar(record: dict) -> None:
         if appointment_dates:
             st.markdown("**Dates with appointments**")
             for appt_date in appointment_dates:
-                marker = "🟣" if appt_date == selected_date else "⚪"
+                marker = "*" if appt_date == selected_date else "-"
                 count = sum(1 for item in record["appointments"] if item["date"] == appt_date.isoformat())
                 st.markdown(f"{marker} {appt_date.isoformat()} — {count} appointment(s)")
 
@@ -276,12 +276,12 @@ st.markdown(_EHR_CSS, unsafe_allow_html=True)
 if not st.session_state.get("selected_patient_id"):
     st.switch_page("views/history.py")
 
-st.markdown("<div class='bg-section'>👤 Patient Detail</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Patient Detail</div>", unsafe_allow_html=True)
 
 record = ensure_sample_patient_record()
 overview = record["overview"]
 
-if st.button("← Back to Patient History"):
+if st.button("Back to Patient History"):
     st.session_state.history_last_selection = overview["name"].lower()
     st.session_state.selected_patient = None
     st.session_state.selected_patient_id = None
@@ -320,7 +320,7 @@ with save_col:
         save_sample_patient_record(record)
         st.session_state.patient_save_success = True
         saved_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-        st.session_state.patient_save_message = f"✅ Patient record successfully updated. Last saved {saved_at}."
+        st.session_state.patient_save_message = f"Patient record successfully updated. Last saved {saved_at}."
         st.session_state.history_last_selection = overview["name"].lower()
         st.session_state.selected_patient = None
         st.session_state.selected_patient_id = None

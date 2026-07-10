@@ -26,9 +26,13 @@ if not st.session_state.get("_models_preloaded", False):
 
 st.session_state.setdefault("role", None)
 st.session_state.setdefault("clinic_authenticated", False)
-<<<<<<< HEAD
 st.session_state.setdefault("show_about", False)
 st.session_state.setdefault("_switching", None)
+st.session_state.setdefault("selected_patient", None)
+st.session_state.setdefault("selected_patient_id", None)
+st.session_state.setdefault("selected_patient_record", None)
+st.session_state.setdefault("history_last_selection", None)
+st.session_state.setdefault("reload_patient_record", False)
 
 
 def _start_switch_role():
@@ -51,14 +55,12 @@ if st.session_state._switching == "overlay":
 if st.session_state._switching == "commit":
     st.session_state.role = None
     st.session_state.clinic_authenticated = False
+    st.session_state.selected_patient = None
+    st.session_state.selected_patient_id = None
+    st.session_state.selected_patient_record = None
+    st.session_state.history_last_selection = None
+    st.session_state.reload_patient_record = True
     st.session_state._switching = None
-=======
-st.session_state.setdefault("selected_patient", None)
-st.session_state.setdefault("selected_patient_id", None)
-st.session_state.setdefault("selected_patient_record", None)
-st.session_state.setdefault("history_last_selection", None)
-st.session_state.setdefault("reload_patient_record", False)
->>>>>>> bc8dffb (add the patient detail page)
 
 if st.session_state.role is None:
     if st.session_state.show_about:
@@ -75,17 +77,10 @@ elif st.session_state.role == "patient":
     st.sidebar.markdown("---")
 
     pages = [
-<<<<<<< HEAD
         st.Page("views/patient_check.py", title="Quick Risk Check", default=True),
         st.Page("views/register_patient.py", title="Register Patient"),
         st.Page("views/dementia_check.py", title="Dementia Check"),
         st.Page("views/medical_report.py", title="Medical Report"),
-=======
-        st.Page("views/patient_check.py", title="Patient Summary", icon="📋", default=True),
-        st.Page("views/register_patient.py", title="Register Patient", icon="🧑‍🤝‍🧑"),
-        st.Page("views/dementia_check.py", title="Dementia Check", icon="🧠"),
-        st.Page("views/medical_report.py", title="Medical Report", icon="📄"),
->>>>>>> bc8dffb (add the patient detail page)
     ]
     nav = st.navigation(pages)
     st.button("Switch Role", on_click=_start_switch_role, key="switch_role_btn")
@@ -100,17 +95,8 @@ elif st.session_state.role == "clinic":
         st.sidebar.markdown("---")
 
         pages = [
-<<<<<<< HEAD
             st.Page("views/dashboard.py", title="Dashboard", default=True),
             st.Page("views/history.py", title="Patient History"),
-        ]
-        nav = st.navigation(pages)
-        st.button("Log Out / Switch Role", on_click=_start_switch_role, key="switch_role_btn")
-=======
-            st.Page("views/history.py", title="Patient History", icon="📜", default=True),
-            st.Page("views/patient_check.py", title="Patient Summary", icon="📋"),
-            st.Page("views/dashboard.py", title="Dashboard", icon="🏠"),
-            st.Page("views/about.py", title="About", icon="ℹ️"),
             st.Page(
                 "views/patient_detail.py",
                 title="Patient Detail",
@@ -119,17 +105,5 @@ elif st.session_state.role == "clinic":
             ),
         ]
         nav = st.navigation(pages)
-
-        st.sidebar.markdown("---")
-        if st.sidebar.button("🔁 Log Out / Switch Role"):
-            st.session_state.role = None
-            st.session_state.clinic_authenticated = False
-            st.session_state.selected_patient = None
-            st.session_state.selected_patient_id = None
-            st.session_state.selected_patient_record = None
-            st.session_state.history_last_selection = None
-            st.session_state.reload_patient_record = True
-            st.rerun()
-
->>>>>>> bc8dffb (add the patient detail page)
+        st.button("Log Out / Switch Role", on_click=_start_switch_role, key="switch_role_btn")
         nav.run()
