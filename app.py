@@ -1,3 +1,5 @@
+import time
+
 import streamlit as st
 
 from utils.db import init_db  # stores patient data(patient history)
@@ -25,12 +27,30 @@ if not st.session_state.get("_models_preloaded", False):
 st.session_state.setdefault("role", None)
 st.session_state.setdefault("clinic_authenticated", False)
 st.session_state.setdefault("show_about", False)
+st.session_state.setdefault("_switching", None)
 
 
-def _switch_role():
+def _start_switch_role():
+    st.session_state._switching = "overlay"
+
+
+# Two-phase switch: the on_click callback alone (reset role, rerun) already
+# stops the dashboard's Python code from re-executing, but the browser can
+# still lag in pruning the *previous* render's stale DOM (verified: caught a
+# brief dashboard/role-select overlap in ~2 of 6 rapid trials). An opaque
+# full-viewport overlay guarantees nothing stale is visible regardless of
+# that reconciliation timing, instead of just hoping it resolves fast enough.
+if st.session_state._switching == "overlay":
+    with st.container(key="switching_overlay"):
+        st.write("Logging out...")
+    time.sleep(0.15)
+    st.session_state._switching = "commit"
+    st.rerun()
+
+if st.session_state._switching == "commit":
     st.session_state.role = None
     st.session_state.clinic_authenticated = False
-
+    st.session_state._switching = None
 
 if st.session_state.role is None:
     if st.session_state.show_about:
@@ -45,8 +65,6 @@ if st.session_state.role is None:
 elif st.session_state.role == "patient":
     st.sidebar.markdown("### Patient Portal")
     st.sidebar.markdown("---")
-    st.sidebar.button("Switch Role", on_click=_switch_role)
-    st.sidebar.markdown("---")
 
     pages = [
         st.Page("views/patient_check.py", title="Quick Risk Check", default=True),
@@ -55,6 +73,7 @@ elif st.session_state.role == "patient":
         st.Page("views/medical_report.py", title="Medical Report"),
     ]
     nav = st.navigation(pages)
+    st.button("Switch Role", on_click=_start_switch_role, key="switch_role_btn")
     nav.run()
 
 elif st.session_state.role == "clinic":
@@ -64,12 +83,11 @@ elif st.session_state.role == "clinic":
     else:
         st.sidebar.markdown("### Clinic Portal")
         st.sidebar.markdown("---")
-        st.sidebar.button("Log Out / Switch Role", on_click=_switch_role)
-        st.sidebar.markdown("---")
 
         pages = [
             st.Page("views/dashboard.py", title="Dashboard", default=True),
             st.Page("views/history.py", title="Patient History"),
         ]
         nav = st.navigation(pages)
+        st.button("Log Out / Switch Role", on_click=_start_switch_role, key="switch_role_btn")
         nav.run()

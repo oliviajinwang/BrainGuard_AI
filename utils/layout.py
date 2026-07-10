@@ -235,6 +235,48 @@ div[data-testid="stDataFrame"] {
 hr {
     border-color: var(--border);
 }
+
+/* Switch Role / Log Out: a floating pill in the bottom-right corner of
+   the main content area instead of the sidebar, positioned so it never
+   overlaps the Dashboard's charts (fixed, small footprint, corner only). */
+.st-key-switch_role_btn {
+    position: fixed;
+    bottom: 24px;
+    right: 32px;
+    z-index: 9999;
+    width: auto !important;
+}
+.st-key-switch_role_btn button {
+    width: auto !important;
+    height: auto !important;
+    padding: 10px 22px !important;
+    border-radius: 999px !important;
+    box-shadow: var(--shadow-md);
+}
+
+/* Full-viewport opaque cover shown for one render pass while switching
+   roles, so stale dashboard/portal content can never peek through while
+   the browser prunes it. */
+.st-key-switching_overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: var(--bg-page);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.st-key-switching_overlay div[data-testid="stMarkdownContainer"] {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+.st-key-switching_overlay p {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink-secondary);
+    text-align: center;
+}
 </style>
 """
 
