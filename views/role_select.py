@@ -74,13 +74,28 @@ st.markdown(
         color: var(--brand) !important;
     }
 
-    /* Options section also fills the viewport and centers its content,
-       so it reads as its own "page" once scrolled into view. */
+    /* Options section also fills the viewport (plus a bit extra for more
+       breathing room / scroll distance before the cards settle), and
+       centers its content so it reads as its own "page" once scrolled
+       into view. */
     .st-key-options_section {
-        min-height: 100vh;
+        min-height: 118vh;
         display: flex;
         flex-direction: column;
         justify-content: center;
+    }
+
+    /* Equal card heights + pin the CTA to the bottom of each card,
+       regardless of the description text wrapping to a different number
+       of lines -- otherwise the two buttons don't line up. */
+    .st-key-patient_card, .st-key-clinic_card {
+        display: flex !important;
+        flex-direction: column;
+        min-height: 260px;
+    }
+    .st-key-patient_cta, .st-key-clinic_cta {
+        margin-top: auto;
+        padding-top: 12px;
     }
 
     @keyframes fadeInUp {
