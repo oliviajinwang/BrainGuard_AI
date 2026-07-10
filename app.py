@@ -24,6 +24,7 @@ if not st.session_state.get("_models_preloaded", False):
 
 st.session_state.setdefault("role", None)
 st.session_state.setdefault("clinic_authenticated", False)
+st.session_state.setdefault("show_about", False)
 
 
 def _switch_role():
@@ -32,8 +33,14 @@ def _switch_role():
 
 
 if st.session_state.role is None:
-    nav = st.navigation([st.Page("views/role_select.py", title="Welcome")], position="hidden")
-    nav.run()
+    if st.session_state.show_about:
+        # Independent of the patient/clinic portals: reachable straight
+        # from the Welcome screen's "About" link, with its own way back.
+        nav = st.navigation([st.Page("views/about.py", title="About")], position="hidden")
+        nav.run()
+    else:
+        nav = st.navigation([st.Page("views/role_select.py", title="Welcome")], position="hidden")
+        nav.run()
 
 elif st.session_state.role == "patient":
     st.sidebar.markdown("### Patient Portal")

@@ -36,3 +36,14 @@ st.warning(
 st.markdown("---")
 st.subheader("Contact")
 st.info("support@brainguardai.com\n\nProject developed as part of a data science / AI course")
+
+if st.session_state.get("role") is None:
+    # Only reachable this way when opened from the Welcome screen's
+    # "About" link -- the patient/clinic portals already have their own
+    # sidebar nav back, so this button would be redundant there.
+    st.markdown("---")
+
+    def _go_home():
+        st.session_state.show_about = False
+
+    st.button("Return to Homepage", on_click=_go_home, type="primary")

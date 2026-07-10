@@ -3,13 +3,18 @@ import streamlit as st
 st.markdown(
     """
     <style>
-    .hero-wrap {
+    .st-key-hero_section {
         min-height: 100vh;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         text-align: center;
+    }
+    .st-key-hero_section div[data-testid="stMarkdownContainer"] {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
     }
     .hero-title {
         font-size: 84px;
@@ -18,11 +23,14 @@ st.markdown(
         color: #000000;
         line-height: 1.05;
         margin-bottom: 16px;
+        text-align: center;
+        width: 100%;
     }
     .hero-subtitle {
         font-size: 21px;
         color: #3D3D42;
         max-width: 640px;
+        text-align: center;
     }
     .scroll-hint {
         margin-top: 56px;
@@ -31,11 +39,39 @@ st.markdown(
         letter-spacing: 0.03em;
         text-transform: uppercase;
         color: #63636B;
+        text-align: center;
+        width: 100%;
         animation: bounce 2s ease-in-out infinite;
     }
     @keyframes bounce {
         0%, 100% { transform: translateY(0); opacity: 0.6; }
         50% { transform: translateY(10px); opacity: 1; }
+    }
+
+    /* "About" rendered as a plain clickable word instead of a filled
+       button -- overrides the app-wide button styling for this key only. */
+    .st-key-about_link {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }
+    .st-key-about_link button {
+        background: transparent !important;
+        border: none !important;
+        width: auto !important;
+        height: auto !important;
+        padding: 2px 6px !important;
+        box-shadow: none !important;
+        margin-top: 18px;
+    }
+    .st-key-about_link button p, .st-key-about_link button span, .st-key-about_link button div {
+        color: var(--ink-muted) !important;
+        text-decoration: underline;
+        font-weight: 500 !important;
+        font-size: 14px !important;
+    }
+    .st-key-about_link button:hover p, .st-key-about_link button:hover span, .st-key-about_link button:hover div {
+        color: var(--brand) !important;
     }
 
     /* Options section also fills the viewport and centers its content,
@@ -78,15 +114,22 @@ st.markdown(
         .st-key-clinic_card { animation-delay: 0.25s; }
     }
     </style>
-
-    <div class="hero-wrap">
-        <div class="hero-title">BrainGuard AI</div>
-        <div class="hero-subtitle">AI-Powered Dementia Risk Assessment &amp; Patient Management System</div>
-        <div class="scroll-hint">Scroll down to continue &#8595;</div>
-    </div>
     """,
     unsafe_allow_html=True,
 )
+
+with st.container(key="hero_section"):
+    st.markdown("<div class='hero-title'>BrainGuard AI</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='hero-subtitle'>AI-Powered Dementia Risk Assessment &amp; Patient Management System</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<div class='scroll-hint'>Scroll down to continue &#8595;</div>", unsafe_allow_html=True)
+
+    def _open_about():
+        st.session_state.show_about = True
+
+    st.button("About", key="about_link", on_click=_open_about)
 
 with st.container(key="options_section"):
     st.write("Please select how you'd like to continue:")
