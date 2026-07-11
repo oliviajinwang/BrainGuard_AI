@@ -84,7 +84,7 @@ elif st.session_state.role == "patient":
     pages = [
         st.Page("views/patient_check.py", title="Quick Risk Check", default=True),
         st.Page("views/register_patient.py", title="Register Patient"),
-        st.Page("views/assistant.py", title="Ask BrainGuard AI"),
+        st.Page("views/assistant.py", title="My AI Assistant"),
     ]
     nav = st.navigation(pages)
     st.button("Switch Role", on_click=_start_switch_role, key="switch_role_btn")
@@ -101,6 +101,7 @@ elif st.session_state.role == "clinic":
         pages = [
             st.Page("views/dashboard.py", title="Dashboard", default=True),
             st.Page("views/history.py", title="Patient History"),
+            st.Page("views/patient_ai_conversation.py", title="Patient AI Conversation"),
             st.Page("views/dementia_check.py", title="Dementia Check"),
             st.Page("views/medical_report.py", title="Medical Report"),
             st.Page(
@@ -110,17 +111,6 @@ elif st.session_state.role == "clinic":
                 visibility="hidden",
             ),
         ]
-        # Only after a patient is selected from History / Detail does this
-        # review page appear in the sidebar — and it always loads that
-        # patient's own conversation history.
-        if st.session_state.get("selected_patient_id"):
-            pages.append(
-                st.Page(
-                    "views/patient_ai_conversation.py",
-                    title="Patient AI Conversation",
-                    url_path="patient-ai-conversation",
-                )
-            )
         nav = st.navigation(pages)
         st.button("Log Out / Switch Role", on_click=_start_switch_role, key="switch_role_btn")
         nav.run()

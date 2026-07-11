@@ -91,7 +91,11 @@ def append_patient_exchange(
     user_timestamp: str | None = None,
     assistant_timestamp: str | None = None,
 ) -> list[dict[str, str]]:
-    """Append one patient→AI turn and persist it under that patient only."""
+    """Append one patient→AI turn and persist it under that patient only.
+
+    Patient portal and clinic review both read from this same Patient ID
+    store, so clinic sees new turns as soon as they are saved — no export.
+    """
     messages = get_patient_conversation(patient_id)
     ts_user = user_timestamp or now_timestamp()
     ts_assistant = assistant_timestamp or now_timestamp()
@@ -100,7 +104,33 @@ def append_patient_exchange(
         {"role": "assistant", "content": assistant_content, "timestamp": ts_assistant}
     )
     save_patient_conversation(patient_id, messages)
+    _sync_session_record_cache(patient_id, messages)
     return messages
+
+
+def _sync_session_record_cache(patient_id: int, messages: list[dict[str, str]]) -> None:
+    """Keep an in-memory patient record (if any) aligned with the DB write."""
+    try:
+        import streamlit as st
+    except Exception:
+        return
+    if st.session_state.get("patient_record_id") != patient_id:
+        return
+    record = st.session_state.get("patient_record")
+    if isinstance(record, dict):
+        record["ai_conversation"] = messages
+        st.session_state.patient_record = record
+        st.session_state.selected_patient_record = record
+    st.session_state.reload_patient_record = True
+
+
+def format_transcript(messages: list[dict[str, str]]) -> str:
+    """Plain-text transcript for clinician copy/download (read-only export)."""
+    lines: list[str] = []
+    for message in messages:
+        sender = "Patient" if message["role"] == "user" else "BrainGuard AI"
+        lines.append(f"[{message['timestamp']}] {sender}: {message['content']}")
+    return "\n\n".join(lines)
 
 
 def filter_messages(
@@ -261,10 +291,18 @@ def summarize_conversation(messages: list[dict[str, str]]) -> dict[str, Any]:
 
 
 def demo_conversation_for_patient(patient_id: int, patient_name: str = "") -> list[dict[str, str]]:
-    """Deterministic sample histories so clinic review is demoable per patient."""
+    """Deterministic sample histories so clinic review is demoable per patient.
+
+    Content is unique per Patient ID (and name when available) so two patients
+    never receive the same shared transcript.
+    """
     base = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0) - timedelta(days=5)
-    # Alternate two distinct scripts by patient id so histories never look shared.
-    if patient_id % 2 == 1:
+    name = (patient_name or "").strip()
+    name_l = name.lower()
+
+    # Prefer recognizable demo personas from the product examples; otherwise
+    # fall back to alternating scripts keyed by patient_id.
+    if "影月月" in name or "yue" in name_l:
         script = [
             ("user", "I forgot where I left my keys again.", 0, 12),
             (
@@ -294,7 +332,7 @@ def demo_conversation_for_patient(patient_id: int, patient_name: str = "") -> li
                 16,
             ),
         ]
-    else:
+    elif name_l == "sample" or "sample" in name_l:
         script = [
             ("user", "I often forget appointments.", 0, 11),
             (
@@ -324,11 +362,48 @@ def demo_conversation_for_patient(patient_id: int, patient_name: str = "") -> li
                 9,
             ),
         ]
+    elif patient_id % 2 == 1:
+        script = [
+            ("user", f"Lately I keep losing track of conversations (patient {patient_id}).", 0, 12),
+            (
+                "assistant",
+                "That sounds stressful. Tracking when it happens and sharing those notes "
+                "with a physician is more helpful than any screening tool alone.",
+                0,
+                13,
+            ),
+            ("user", "I feel anxious when I can't find everyday items.", 1, 9),
+            (
+                "assistant",
+                "Anxiety around memory slips is common. A primary care visit can help "
+                "sort out next steps; BrainGuard AI can't diagnose anxiety or dementia.",
+                1,
+                10,
+            ),
+        ]
+    else:
+        script = [
+            ("user", f"My sleep schedule has been irregular this month (patient {patient_id}).", 0, 11),
+            (
+                "assistant",
+                "Irregular sleep can affect daytime focus. A clinician can review sleep "
+                "habits and other causes — this assistant can't diagnose sleep disorders.",
+                0,
+                12,
+            ),
+            ("user", "I also missed two clinic appointments recently.", 1, 20),
+            (
+                "assistant",
+                "Reminders and calendar supports help many people. Your clinic team can "
+                "also discuss whether further evaluation would be useful.",
+                1,
+                21,
+            ),
+        ]
 
     messages: list[dict[str, str]] = []
     for role, content, day_offset, hour in script:
         ts = (base + timedelta(days=day_offset)).replace(hour=hour, minute=15)
-        # Slightly vary timestamps by patient_id so two patients never collide.
         ts = ts + timedelta(minutes=(patient_id % 7))
         messages.append(
             {
@@ -337,9 +412,6 @@ def demo_conversation_for_patient(patient_id: int, patient_name: str = "") -> li
                 "timestamp": ts.isoformat(sep=" "),
             }
         )
-    if patient_name:
-        # Keep content patient-agnostic; name is unused but reserved for future personalization.
-        _ = patient_name
     return messages
 
 

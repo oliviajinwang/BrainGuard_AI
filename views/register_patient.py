@@ -1,6 +1,6 @@
 import streamlit as st
 
-from utils.db import insert_patient
+from utils.db import display_id, insert_patient
 
 st.markdown("<div class='bg-section'>Register Patient</div>", unsafe_allow_html=True)
 st.write("Enter the patient's personal and contact details to create a new record.")
@@ -42,6 +42,17 @@ if submitted:
                 "emergency_contact": emergency_contact.strip(),
             }
         )
-        st.success(f"Patient registered successfully. Patient ID: P{patient_id:04d}")
-        st.info("This patient will now appear in Patient History after registration.")
+        # New patients start with an empty AI conversation on their record;
+        # signing into My AI Assistant will grow that history under this ID.
+        st.session_state.assistant_patient_id = patient_id
+        st.session_state.assistant_messages = []
+        st.success(
+            f"Patient registered successfully. Patient ID: {display_id(patient_id)}"
+        )
+        st.info(
+            "This patient now has a personal AI conversation history on their record. "
+            "It will appear in Patient History for the clinic, and in My AI Assistant "
+            f"when signed in as {display_id(patient_id)}."
+        )
+        st.page_link("views/assistant.py", label="Open my AI Assistant")
         st.page_link("views/patient_check.py", label="Proceed to Quick Risk Check")

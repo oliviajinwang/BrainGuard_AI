@@ -232,11 +232,17 @@ def resolve_patient_id_from_query(query: str) -> int | None:
         return None
 
     df = fetch_all_patients()
+    # Prefer exact display-ID / numeric ID, then exact full-name match, so
+    # "Sample" does not accidentally bind to a different similarly named row
+    # when multiple near-matches exist.
     for _, row in df.iterrows():
         patient_id = int(row["id"])
-        name = str(row.get("full_name", "")).lower()
-        if q == name or q == display_id(patient_id).lower() or q == str(patient_id):
+        if q == display_id(patient_id).lower() or q == str(patient_id):
             return patient_id
+    for _, row in df.iterrows():
+        name = str(row.get("full_name", "")).lower()
+        if q == name:
+            return int(row["id"])
     return None
 
 

@@ -8,6 +8,8 @@ from utils.db import display_id, get_patient
 from utils.patient_conversation import (
     ensure_conversation_seeded,
     filter_messages,
+    format_transcript,
+    get_patient_conversation,
     summarize_conversation,
 )
 
@@ -19,19 +21,6 @@ _CHAT_CSS = """
     font-family: var(--font-mono);
     margin-bottom: 0.35rem;
 }
-.ai-summary-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 1rem 1.15rem;
-    margin-bottom: 1rem;
-    box-shadow: var(--shadow-sm);
-}
-.ai-summary-card h4 {
-    margin: 0 0 0.55rem 0;
-    font-family: var(--font-serif);
-    color: var(--ink-primary);
-}
 .ai-readonly-note {
     font-size: 0.85rem;
     color: var(--ink-secondary);
@@ -41,38 +30,61 @@ _CHAT_CSS = """
 """
 
 
+st.markdown(_CHAT_CSS, unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>Patient AI Conversation</div>", unsafe_allow_html=True)
+
 if not st.session_state.get("selected_patient_id"):
-    st.switch_page("views/history.py")
+    st.info(
+        "Select a registered patient from **Patient History** to review their "
+        "personal AI conversation. Histories are stored by Patient ID and never shared."
+    )
+    if st.button("Go to Patient History", type="primary"):
+        st.switch_page("views/history.py")
+    st.stop()
 
 patient_id = int(st.session_state.selected_patient_id)
 patient_row = get_patient(patient_id)
 if not patient_row:
     st.session_state.selected_patient_id = None
     st.session_state.selected_patient = None
-    st.switch_page("views/history.py")
+    st.warning("That patient record could not be found. Please select another patient.")
+    if st.button("Go to Patient History", type="primary", key="missing_patient_history"):
+        st.switch_page("views/history.py")
+    st.stop()
 
 patient_name = patient_row["full_name"]
 patient_display_id = display_id(patient_id)
 
-st.markdown(_CHAT_CSS, unsafe_allow_html=True)
-st.markdown("<div class='bg-section'>Patient AI Conversation</div>", unsafe_allow_html=True)
 st.caption(
-    "Read-only clinical review of this patient's Ask BrainGuard AI history. "
-    "Conversations are stored by patient ID and never mixed across patients."
+    "Read-only clinical review of this patient's personal AI history. "
+    "Data is loaded live from the patient record by Patient ID — the same store "
+    "the patient portal writes to after every message."
 )
 
 header_left, header_right = st.columns([3, 1])
 with header_left:
     st.markdown(f"## {patient_name}")
-    st.caption(f"Patient ID {patient_display_id} · conversation scoped to this record only")
+    st.caption(
+        f"Patient ID {patient_display_id} · conversation scoped to this record only · "
+        "never mixed with other patients"
+    )
 with header_right:
     if st.button("Back to Patient Detail", use_container_width=True):
         st.switch_page("views/patient_detail.py")
 
+# Live load by Patient ID (seed demo history only when the record is still empty).
 messages = ensure_conversation_seeded(patient_id, patient_name)
+# Re-read once more so the page always reflects the latest DB write from the patient portal.
+messages = get_patient_conversation(patient_id)
 summary = summarize_conversation(messages)
 
-st.markdown("<div class='ai-readonly-note'>Clinicians can review this thread but cannot edit or delete messages.</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='ai-readonly-note'>"
+    "Clinicians can read, search, filter, and copy this thread, but cannot edit, "
+    "delete, or send messages as the patient."
+    "</div>",
+    unsafe_allow_html=True,
+)
 
 with st.container(border=True):
     st.markdown("#### AI Conversation Summary")
@@ -138,6 +150,21 @@ preview_limit = 6
 visible = filtered if expand_all else filtered[-preview_limit:]
 hidden_count = max(0, len(filtered) - len(visible))
 
+copy_col, refresh_col, _ = st.columns([1, 1, 2])
+with copy_col:
+    st.download_button(
+        "Copy / download transcript",
+        data=format_transcript(filtered).encode("utf-8"),
+        file_name=f"{patient_display_id}_ai_conversation.txt",
+        mime="text/plain",
+        use_container_width=True,
+        disabled=not filtered,
+    )
+with refresh_col:
+    if st.button("Refresh latest", use_container_width=True):
+        st.session_state.reload_patient_record = True
+        st.rerun()
+
 st.markdown("#### Conversation")
 if not messages:
     st.info("No AI conversation has been recorded for this patient yet.")
@@ -149,8 +176,8 @@ else:
             f"Showing the latest {len(visible)} of {len(filtered)} matching messages. "
             "Turn on **Expand full conversation** to review the complete thread."
         )
-    elif search or start_date or end_date:
-        st.caption(f"Showing {len(filtered)} matching message(s), oldest first.")
+    else:
+        st.caption(f"Showing {len(filtered)} message(s) for {patient_name}, oldest first.")
 
     with st.container(border=True):
         for message in visible:

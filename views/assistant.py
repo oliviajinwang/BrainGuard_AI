@@ -2,11 +2,16 @@ import streamlit as st
 
 from utils.assistant import assistant_available, get_assistant_response
 from utils.db import display_id, get_patient, resolve_patient_id_from_query
-from utils.patient_conversation import append_patient_exchange, get_patient_conversation, now_timestamp
+from utils.patient_conversation import (
+    append_patient_exchange,
+    get_patient_conversation,
+    now_timestamp,
+)
 
-st.markdown("<div class='bg-section'>Ask BrainGuard AI</div>", unsafe_allow_html=True)
+st.markdown("<div class='bg-section'>My AI Assistant</div>", unsafe_allow_html=True)
 st.write(
-    "Ask about how this tool works, what a result means, or general dementia risk factors."
+    "Each registered patient has a personal AI conversation, saved automatically "
+    "under their Patient ID and shared with the clinic record."
 )
 st.caption(
     "This assistant can't diagnose anyone or give personal medical advice — for anything "
@@ -19,87 +24,107 @@ if not assistant_available():
         "about this tool and general dementia risk factors below."
     )
 
-st.session_state.setdefault("assistant_messages", [])
 st.session_state.setdefault("assistant_patient_id", None)
+st.session_state.setdefault("assistant_messages", [])
 
-with st.expander("Link this chat to a registered Patient ID (optional)", expanded=False):
+
+def _load_patient_chat(patient_id: int) -> None:
+    """Load only this patient's stored history into the session (never another ID)."""
+    st.session_state.assistant_patient_id = int(patient_id)
+    st.session_state.assistant_messages = [
+        {"role": m["role"], "content": m["content"], "timestamp": m["timestamp"]}
+        for m in get_patient_conversation(patient_id)
+    ]
+
+
+def _sign_out_patient_chat() -> None:
+    st.session_state.assistant_patient_id = None
+    st.session_state.assistant_messages = []
+
+
+patient_id = st.session_state.get("assistant_patient_id")
+
+# --- Sign-in: required so every message is tied to a unique Patient ID ---
+if not patient_id:
+    st.markdown("#### Continue as a registered patient")
     st.caption(
-        "When linked, your conversation is saved to that patient's record so clinic staff "
-        "can review it under Patient AI Conversation. Unlinked chats stay in this session only."
+        "Enter the Patient ID from registration (for example P0006) or the exact "
+        "registered name. Your chat history loads from that record only."
     )
-    link_col, clear_col = st.columns([3, 1])
-    with link_col:
-        link_query = st.text_input(
+    sign_col, _ = st.columns([2, 1])
+    with sign_col:
+        identity = st.text_input(
             "Patient ID or full name",
-            value=display_id(st.session_state.assistant_patient_id)
-            if st.session_state.assistant_patient_id
-            else "",
-            placeholder="e.g. P0008 or Jane Doe",
-            key="assistant_link_query",
+            placeholder="e.g. P0006 or Sample",
+            key="assistant_sign_in_query",
         )
-    with clear_col:
-        st.write("")
-        st.write("")
-        if st.button("Unlink", use_container_width=True):
-            st.session_state.assistant_patient_id = None
-            st.session_state.assistant_messages = []
-            st.rerun()
-
-    if st.button("Link patient", type="primary"):
-        resolved = resolve_patient_id_from_query(link_query) if link_query.strip() else None
+    if st.button("Open my AI conversation", type="primary"):
+        resolved = resolve_patient_id_from_query(identity) if identity.strip() else None
         if resolved is None:
-            st.error("No registered patient matched that ID or name.")
+            st.error(
+                "No registered patient matched. Register first, then use the Patient ID "
+                "shown after registration."
+            )
         else:
-            st.session_state.assistant_patient_id = resolved
-            # Load this patient's own history so the session never shows another patient's chat.
-            st.session_state.assistant_messages = [
-                {"role": m["role"], "content": m["content"], "timestamp": m["timestamp"]}
-                for m in get_patient_conversation(resolved)
-            ]
-            st.success(f"Linked to {display_id(resolved)} — {get_patient(resolved)['full_name']}.")
+            _load_patient_chat(resolved)
+            row = get_patient(resolved)
+            st.success(
+                f"Signed in as {row['full_name']} ({display_id(resolved)}). "
+                "Messages save to this patient record automatically."
+            )
             st.rerun()
+    st.stop()
 
-linked_id = st.session_state.get("assistant_patient_id")
-if linked_id:
-    linked_row = get_patient(linked_id)
-    linked_name = linked_row["full_name"] if linked_row else "Unknown"
-    st.caption(f"Saving to patient record {display_id(linked_id)} ({linked_name}).")
+# --- Signed-in personal assistant ---
+patient_row = get_patient(patient_id)
+if not patient_row:
+    st.error("That patient record no longer exists. Please sign in again.")
+    _sign_out_patient_chat()
+    st.stop()
+
+patient_name = patient_row["full_name"]
+patient_label = display_id(patient_id)
+
+# Always refresh from the Patient ID store so clinic↔patient stay in sync
+# if the doctor had been viewing / if another tab wrote updates.
+_load_patient_chat(patient_id)
+
+header_left, header_right = st.columns([3, 1])
+with header_left:
+    st.markdown(f"### {patient_name}")
+    st.caption(
+        f"Personal AI for Patient ID {patient_label} · history is private to this record · "
+        "saved after every message"
+    )
+with header_right:
+    if st.button("Switch patient", use_container_width=True):
+        _sign_out_patient_chat()
+        st.rerun()
 
 for message in st.session_state["assistant_messages"]:
-    with st.chat_message(message["role"]):
-        if message.get("timestamp"):
-            st.caption(message["timestamp"])
+    role = message["role"]
+    label = "You" if role == "user" else "BrainGuard AI"
+    with st.chat_message(role):
+        st.caption(f"{label} · {message.get('timestamp', '')}")
         st.write(message["content"])
 
-user_message = st.chat_input("Ask a question...")
+user_message = st.chat_input(f"Message as {patient_name}…")
 if user_message:
     user_ts = now_timestamp()
-    st.session_state["assistant_messages"].append(
-        {"role": "user", "content": user_message, "timestamp": user_ts}
-    )
-    with st.chat_message("user"):
-        st.caption(user_ts)
-        st.write(user_message)
-
-    reply = get_assistant_response(user_message, st.session_state["assistant_messages"])
+    history_for_model = list(st.session_state["assistant_messages"])
+    reply = get_assistant_response(user_message, history_for_model)
     assistant_ts = now_timestamp()
-    st.session_state["assistant_messages"].append(
-        {"role": "assistant", "content": reply, "timestamp": assistant_ts}
+
+    # Persist under this Patient ID immediately — clinic reads the same store.
+    saved = append_patient_exchange(
+        patient_id,
+        user_message,
+        reply,
+        user_timestamp=user_ts,
+        assistant_timestamp=assistant_ts,
     )
-    with st.chat_message("assistant"):
-        st.caption(assistant_ts)
-        st.write(reply)
-
-    if linked_id:
-        append_patient_exchange(
-            linked_id,
-            user_message,
-            reply,
-            user_timestamp=user_ts,
-            assistant_timestamp=assistant_ts,
-        )
-
-if st.session_state["assistant_messages"]:
-    if st.button("Clear conversation"):
-        st.session_state["assistant_messages"] = []
-        st.rerun()
+    st.session_state["assistant_messages"] = [
+        {"role": m["role"], "content": m["content"], "timestamp": m["timestamp"]}
+        for m in saved
+    ]
+    st.rerun()
