@@ -31,6 +31,7 @@ if st.button("Check My Risk", type="primary"):
         "smoking": int(smoking),
     }
     st.session_state["patient_result"] = predict_lifestyle(patient)
+    st.session_state["patient_inputs"] = patient
 
 if "patient_result" in st.session_state:
     result = st.session_state["patient_result"]
@@ -66,6 +67,68 @@ if "patient_result" in st.session_state:
         "research dataset (not a large clinical trial). Individual results can "
         "vary, and this tool cannot replace a qualified physician's judgment."
     )
+
+    st.markdown("---")
+    st.subheader("See what happens if...")
+
+    original_inputs = st.session_state["patient_inputs"]
+    modifiable = []
+    if original_inputs["smoking"]:
+        modifiable.append(("smoking", "I quit smoking"))
+    if original_inputs["hypertension"]:
+        modifiable.append(("hypertension", "I controlled my blood pressure"))
+    if original_inputs["high_cholesterol"]:
+        modifiable.append(("high_cholesterol", "I controlled my cholesterol"))
+
+    if not modifiable:
+        st.caption(
+            "None of the quickly modifiable risk factors this simulator covers "
+            "(smoking, blood pressure, cholesterol) are currently flagged for you."
+        )
+    else:
+        st.caption("Check any of these to see how your estimated risk could change.")
+        changes = {}
+        whatif_cols = st.columns(len(modifiable))
+        for whatif_col, (field, checkbox_label) in zip(whatif_cols, modifiable):
+            with whatif_col:
+                changes[field] = st.checkbox(checkbox_label, key=f"whatif_{field}")
+
+        if any(changes.values()):
+            whatif_inputs = dict(original_inputs)
+            for field, checked in changes.items():
+                if checked:
+                    whatif_inputs[field] = 0
+            whatif_result = predict_lifestyle(whatif_inputs)
+
+            gauge_col1, gauge_col2 = st.columns(2)
+            with gauge_col1:
+                st.plotly_chart(
+                    render_risk_gauge(result["risk"], "Current estimated risk"),
+                    width="stretch",
+                    theme=None,
+                )
+            with gauge_col2:
+                st.plotly_chart(
+                    render_risk_gauge(whatif_result["risk"], "If you made these changes"),
+                    width="stretch",
+                    theme=None,
+                )
+
+            delta = result["risk"] - whatif_result["risk"]
+            if delta > 0.05:
+                st.success(
+                    f"Estimated risk could drop by **{delta:.1f} percentage points** "
+                    f"(from {result['risk']:.1f}% to {whatif_result['risk']:.1f}%) with "
+                    f"these changes, according to this model."
+                )
+            elif delta < -0.05:
+                st.info(
+                    f"According to this model, estimated risk changes from "
+                    f"{result['risk']:.1f}% to {whatif_result['risk']:.1f}% with these "
+                    f"changes."
+                )
+            else:
+                st.info("These changes don't meaningfully shift the estimated risk in this model.")
 
     st.markdown("---")
     st.subheader("Why did the model make this prediction?")
