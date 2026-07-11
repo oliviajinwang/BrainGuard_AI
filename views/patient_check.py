@@ -1,9 +1,9 @@
 import streamlit as st
 
-from utils.gauge import render_risk_gauge, threshold_gauge_legend
+from utils.gauge import render_risk_gauge, scaled_red_zone_start, threshold_gauge_legend
 from utils.report import RECOMMENDATIONS
 from utils.shap_chart import render_shap_breakdown
-from src.predict_lifestyle import DECISION_THRESHOLD, MODEL_METRICS, predict_lifestyle
+from src.predict_lifestyle import DECISION_THRESHOLD, MAX_REACHABLE_RISK, MODEL_METRICS, predict_lifestyle
 
 st.markdown("<div class='bg-section'>Dementia Risk Check</div>", unsafe_allow_html=True)
 st.write("Answer a few questions about your lifestyle to see your estimated dementia risk.")
@@ -36,12 +36,19 @@ if st.button("Check My Risk", type="primary"):
 if "patient_result" in st.session_state:
     result = st.session_state["patient_result"]
     lifestyle_threshold_pct = DECISION_THRESHOLD * 100
+    lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, MAX_REACHABLE_RISK)
     st.plotly_chart(
-        render_risk_gauge(result["risk"], "Estimated dementia risk", high_risk_threshold=lifestyle_threshold_pct),
+        render_risk_gauge(
+            result["risk"], "Estimated dementia risk",
+            high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
+        ),
         width="stretch",
         theme=None,
     )
-    st.caption(f"{threshold_gauge_legend(lifestyle_threshold_pct)}  ·  Model prediction: **{result['label']}**")
+    st.caption(
+        f"{threshold_gauge_legend(lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start)}  ·  "
+        f"Model prediction: **{result['label']}**"
+    )
     st.info(RECOMMENDATIONS.get(result["label"], ""))
 
     if result["label"] == "High Risk":
@@ -104,13 +111,19 @@ if "patient_result" in st.session_state:
             gauge_col1, gauge_col2 = st.columns(2)
             with gauge_col1:
                 st.plotly_chart(
-                    render_risk_gauge(result["risk"], "Current estimated risk", high_risk_threshold=lifestyle_threshold_pct),
+                    render_risk_gauge(
+                        result["risk"], "Current estimated risk",
+                        high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
+                    ),
                     width="stretch",
                     theme=None,
                 )
             with gauge_col2:
                 st.plotly_chart(
-                    render_risk_gauge(whatif_result["risk"], "If you made these changes", high_risk_threshold=lifestyle_threshold_pct),
+                    render_risk_gauge(
+                        whatif_result["risk"], "If you made these changes",
+                        high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
+                    ),
                     width="stretch",
                     theme=None,
                 )

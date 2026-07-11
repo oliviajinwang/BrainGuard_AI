@@ -1,3 +1,4 @@
+import itertools
 import json
 
 import joblib
@@ -32,10 +33,42 @@ def _load_metrics():
         return json.load(f)
 
 
+@st.cache_resource
+def _compute_max_reachable_risk() -> float:
+    # XGBoost trees don't extrapolate past the value ranges/interactions
+    # seen in training, so the model's true ceiling isn't obvious from a
+    # single hand-picked "worst case" input -- it has to be found by
+    # exhaustively grid-searching the exact input space the UI allows
+    # (age 40-90, education 0-25, and 4 boolean toggles: every slider is
+    # integer-stepped, so this covers every value a user could actually
+    # enter, not an approximation).
+    ages = range(40, 91)
+    educations = range(0, 26)
+    rows = [
+        {
+            "age": age,
+            "gender_male": gender,
+            "education_years": edu,
+            "diabetes": diabetes,
+            "hypertension": hyper,
+            "high_cholesterol": chol,
+            "smoking": smoke,
+        }
+        for age in ages
+        for edu in educations
+        for gender in (0, 1)
+        for diabetes, hyper, chol, smoke in itertools.product((0, 1), repeat=4)
+    ]
+    grid = pd.DataFrame(rows)
+    probabilities = model.predict_proba(grid)[:, 1]
+    return float(probabilities.max() * 100)
+
+
 model = _load_model()
 explainer = _load_explainer()
 DECISION_THRESHOLD = _load_threshold()
 MODEL_METRICS = _load_metrics()
+MAX_REACHABLE_RISK = _compute_max_reachable_risk()
 
 
 FEATURE_DESCRIPTIONS = {

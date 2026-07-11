@@ -3,12 +3,17 @@ import streamlit as st
 
 from utils.cohort_chart import render_cohort_scatter
 from utils.db import display_id, fetch_all_patients, update_assessment
-from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, render_risk_gauge, threshold_gauge_legend
+from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, render_risk_gauge, scaled_red_zone_start, threshold_gauge_legend
 from utils.report import RECOMMENDATIONS
 from utils.shap_chart import render_shap_breakdown
 from src.predict import MODEL_METRICS as CLINICAL_METRICS, predict_patient
 from src.predict_cognitive import DECISION_THRESHOLD as COGNITIVE_THRESHOLD, MODEL_METRICS as COGNITIVE_METRICS, predict_cognitive
-from src.predict_lifestyle import DECISION_THRESHOLD as LIFESTYLE_THRESHOLD, MODEL_METRICS as LIFESTYLE_METRICS, predict_lifestyle
+from src.predict_lifestyle import (
+    DECISION_THRESHOLD as LIFESTYLE_THRESHOLD,
+    MAX_REACHABLE_RISK as LIFESTYLE_MAX_REACHABLE_RISK,
+    MODEL_METRICS as LIFESTYLE_METRICS,
+    predict_lifestyle,
+)
 
 LACUNE_COUNT_OPTIONS = {"None": 0, "1-2": 1, "3-5": 2, "More than 5": 3}
 
@@ -85,12 +90,19 @@ with tab_lifestyle:
     if "lifestyle_result" in st.session_state:
         result = st.session_state["lifestyle_result"]
         lifestyle_threshold_pct = LIFESTYLE_THRESHOLD * 100
+        lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, LIFESTYLE_MAX_REACHABLE_RISK)
         st.plotly_chart(
-            render_risk_gauge(result["risk"], "Estimated dementia risk", high_risk_threshold=lifestyle_threshold_pct),
+            render_risk_gauge(
+                result["risk"], "Estimated dementia risk",
+                high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
+            ),
             width="stretch",
             theme=None,
         )
-        st.caption(f"{threshold_gauge_legend(lifestyle_threshold_pct)}  ·  Model prediction: **{result['label']}**")
+        st.caption(
+            f"{threshold_gauge_legend(lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start)}  ·  "
+            f"Model prediction: **{result['label']}**"
+        )
         st.info(RECOMMENDATIONS.get(result["label"], ""))
 
         st.markdown("---")
@@ -128,13 +140,19 @@ with tab_lifestyle:
                 ls_gauge_col1, ls_gauge_col2 = st.columns(2)
                 with ls_gauge_col1:
                     st.plotly_chart(
-                        render_risk_gauge(result["risk"], "Current estimated risk", high_risk_threshold=lifestyle_threshold_pct),
+                        render_risk_gauge(
+                            result["risk"], "Current estimated risk",
+                            high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
+                        ),
                         width="stretch",
                         theme=None,
                     )
                 with ls_gauge_col2:
                     st.plotly_chart(
-                        render_risk_gauge(ls_whatif_result["risk"], "If these changes were made", high_risk_threshold=lifestyle_threshold_pct),
+                        render_risk_gauge(
+                            ls_whatif_result["risk"], "If these changes were made",
+                            high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
+                        ),
                         width="stretch",
                         theme=None,
                     )

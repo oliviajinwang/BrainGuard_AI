@@ -10,6 +10,17 @@ def _high_risk_midpoint(high_risk_threshold: float) -> float:
     return high_risk_threshold + (100 - high_risk_threshold) / 2
 
 
+def scaled_red_zone_start(high_risk_threshold: float, max_reachable_risk: float) -> float:
+    """Midpoint between the decision threshold and the model's actual
+    reachable ceiling, instead of the generic (100 - threshold) midpoint.
+    Some models (e.g. lifestyle) can never get anywhere near 100% due to
+    calibration on a rare-positive-class training set -- anchoring to the
+    real ceiling keeps yellow AND red both genuinely reachable, instead of
+    red being a decorative band nothing ever renders in.
+    """
+    return high_risk_threshold + (max_reachable_risk - high_risk_threshold) / 2
+
+
 def _finalize(fig: go.Figure) -> go.Figure:
     fig.update_layout(
         height=280,
@@ -20,7 +31,12 @@ def _finalize(fig: go.Figure) -> go.Figure:
     return fig
 
 
-def render_risk_gauge(risk_percent: float, subtitle: str, high_risk_threshold: float) -> go.Figure:
+def render_risk_gauge(
+    risk_percent: float,
+    subtitle: str,
+    high_risk_threshold: float,
+    red_zone_start: float | None = None,
+) -> go.Figure:
     """Gauge for models with a single binary decision threshold (lifestyle,
     cognitive). Zone boundaries are pinned to that model's own
     high_risk_threshold (percent, 0-100) rather than a fixed split, so
@@ -28,8 +44,13 @@ def render_risk_gauge(risk_percent: float, subtitle: str, high_risk_threshold: f
     otherwise a rare-positive-class model with a low tuned threshold (e.g.
     ~5%) can be labeled High Risk while still landing in a fixed 0-30%
     "green" band, which reads as a direct contradiction to users.
+
+    red_zone_start overrides where yellow ends and red begins (see
+    scaled_red_zone_start) -- pass it for models whose reachable ceiling is
+    well under 100%, so red stays a genuinely reachable zone rather than a
+    band nothing ever renders in.
     """
-    midpoint = _high_risk_midpoint(high_risk_threshold)
+    midpoint = red_zone_start if red_zone_start is not None else _high_risk_midpoint(high_risk_threshold)
     fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
@@ -50,8 +71,8 @@ def render_risk_gauge(risk_percent: float, subtitle: str, high_risk_threshold: f
     return _finalize(fig)
 
 
-def threshold_gauge_legend(high_risk_threshold: float) -> str:
-    midpoint = _high_risk_midpoint(high_risk_threshold)
+def threshold_gauge_legend(high_risk_threshold: float, red_zone_start: float | None = None) -> str:
+    midpoint = red_zone_start if red_zone_start is not None else _high_risk_midpoint(high_risk_threshold)
     return (
         f"0–{high_risk_threshold:.1f}%: Lower risk (green)  ·  "
         f"{high_risk_threshold:.1f}–{midpoint:.1f}%: High risk, borderline (yellow)  ·  "
