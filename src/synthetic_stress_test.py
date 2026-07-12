@@ -20,7 +20,6 @@ import numpy as np
 import pandas as pd
 
 from src.predict import predict_patient
-from src.predict_cognitive import predict_cognitive
 from src.predict_lifestyle import predict_lifestyle
 
 RNG = np.random.default_rng(42)
@@ -89,28 +88,11 @@ def stress_test_structural(n: int = 200) -> tuple:
     return _run_batch("structural (OASIS)", predict_patient, patients)
 
 
-def stress_test_cognitive(n: int = 200) -> tuple:
-    df = pd.read_csv("data/patient_view_data/cognitive_clean.csv")
-    columns = ["age", "gender_male", "education_years", "ef", "ps", "global_cognitive", "fazekas", "lacune_count"]
-    patients = _bootstrap_sampler(df, columns, n).to_dict("records")
-
-    # Deliberate edge cases at/beyond the Cognitive & Microvascular UI's input bounds.
-    patients += [
-        {"age": 100, "gender_male": 1, "education_years": 0, "ef": -5.0, "ps": -3.0,
-         "global_cognitive": -3.0, "fazekas": 3, "lacune_count": 3},
-        {"age": 40, "gender_male": 0, "education_years": 25, "ef": 3.0, "ps": 3.0,
-         "global_cognitive": 2.0, "fazekas": 0, "lacune_count": 0},
-    ]
-
-    return _run_batch("cognitive", predict_cognitive, patients)
-
-
 def main(n: int = 200) -> None:
     results = {}
     for name, fn in [
         ("lifestyle", stress_test_lifestyle),
         ("structural", stress_test_structural),
-        ("cognitive", stress_test_cognitive),
     ]:
         results[name] = fn(n)
 

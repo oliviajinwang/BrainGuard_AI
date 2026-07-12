@@ -1,7 +1,14 @@
 import streamlit as st
 
 from utils.assistant import assistant_available, get_assistant_response
-from utils.db import display_id, get_patient, resolve_patient_id_from_query
+from utils.db import (
+    display_id,
+    get_patient,
+    patient_has_pin,
+    resolve_patient_id_from_query,
+    set_patient_pin,
+    verify_patient_pin,
+)
 from utils.patient_conversation import (
     append_patient_exchange,
     get_patient_conversation,
@@ -42,12 +49,15 @@ def _load_patient_chat(patient_id: int) -> None:
 
 def _sign_out_patient_chat() -> None:
     st.session_state.assistant_patient_id = None
+    st.session_state.assistant_pending_patient_id = None
     st.session_state.assistant_messages = []
 
 
 patient_id = st.session_state.get("assistant_patient_id")
+st.session_state.setdefault("assistant_pending_patient_id", None)
+pending_id = st.session_state.assistant_pending_patient_id
 
-if not patient_id:
+if not patient_id and not pending_id:
     st.markdown("#### Continue as a registered patient")
     st.caption(
         "Enter the Patient ID shown during registration. Exact names are also "
@@ -62,7 +72,7 @@ if not patient_id:
             key="assistant_sign_in_query",
         )
 
-    if st.button("Open my AI conversation", type="primary"):
+    if st.button("Continue", type="primary"):
         resolved = resolve_patient_id_from_query(identity) if identity.strip() else None
 
         if resolved is None:
@@ -75,10 +85,56 @@ if not patient_id:
             if row is None:
                 st.error("That patient record could not be loaded.")
             else:
-                _load_patient_chat(resolved)
-                st.success(
-                    f"Signed in as {row['full_name']} ({display_id(resolved)})."
-                )
+                st.session_state.assistant_pending_patient_id = resolved
+                st.rerun()
+
+    st.stop()
+
+if pending_id and not patient_id:
+    pending_row = get_patient(pending_id)
+    if pending_row is None:
+        st.session_state.assistant_pending_patient_id = None
+        st.error("That patient record could not be loaded. Please try again.")
+        st.rerun()
+
+    pending_name = pending_row["full_name"]
+    pending_label = display_id(pending_id)
+
+    if st.button("← Use a different Patient ID"):
+        st.session_state.assistant_pending_patient_id = None
+        st.rerun()
+
+    if patient_has_pin(pending_id):
+        st.markdown(f"#### Enter PIN for {pending_name} ({pending_label})")
+        pin_entry = st.text_input(
+            "4-6 digit PIN", type="password", max_chars=6, key="assistant_pin_entry"
+        )
+        if st.button("Unlock", type="primary"):
+            if verify_patient_pin(pending_id, pin_entry):
+                _load_patient_chat(pending_id)
+                st.session_state.assistant_pending_patient_id = None
+                st.rerun()
+            else:
+                st.error("Incorrect PIN.")
+    else:
+        st.markdown(f"#### Set up a PIN for {pending_name} ({pending_label})")
+        st.caption(
+            "This patient was registered before AI Assistant PINs existed. "
+            "Set one now to protect this conversation going forward."
+        )
+        new_pin = st.text_input("Set a 4-6 digit PIN", type="password", max_chars=6, key="assistant_new_pin")
+        new_pin_confirm = st.text_input(
+            "Confirm PIN", type="password", max_chars=6, key="assistant_new_pin_confirm"
+        )
+        if st.button("Set PIN and continue", type="primary"):
+            if not new_pin.isdigit() or not (4 <= len(new_pin) <= 6):
+                st.error("PIN must be 4-6 digits.")
+            elif new_pin != new_pin_confirm:
+                st.error("PINs don't match.")
+            else:
+                set_patient_pin(pending_id, new_pin)
+                _load_patient_chat(pending_id)
+                st.session_state.assistant_pending_patient_id = None
                 st.rerun()
 
     st.stop()

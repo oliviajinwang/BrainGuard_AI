@@ -66,6 +66,7 @@ if st.session_state._switching == "commit":
     st.session_state.patient_record_id = None
     st.session_state.assistant_messages = []
     st.session_state.assistant_patient_id = None
+    st.session_state.assistant_pending_patient_id = None
     st.session_state.history_last_selection = None
     st.session_state.reload_patient_record = True
     st.session_state._switching = None

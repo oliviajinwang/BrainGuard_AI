@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 import streamlit as st
@@ -13,6 +14,12 @@ DEFAULT_MODEL = "gpt-5-nano"
 MAX_HISTORY_MESSAGES = 8
 MAX_USER_MESSAGE_CHARS = 2_000
 MAX_OUTPUT_TOKENS = 200
+
+# Rate limit -- bounds worst-case API spend per browser session (roughly
+# per-patient, since each session signs in as one patient at a time). Only
+# gates the paid OpenAI call, not the free local FAQ match below.
+RATE_LIMIT_MAX_MESSAGES = 5
+RATE_LIMIT_WINDOW_SECONDS = 60
 
 FAQ_RULES: list[tuple[list[str], str]] = [
     (
@@ -211,6 +218,20 @@ def assistant_available() -> bool:
     return _load_client() is not None
 
 
+def _check_rate_limit() -> bool:
+    """Sliding-window limiter over st.session_state. Returns False if the
+    caller should be blocked from making another paid API call right now."""
+    now = time.time()
+    timestamps: list[float] = st.session_state.setdefault("_assistant_api_call_times", [])
+    timestamps[:] = [t for t in timestamps if now - t < RATE_LIMIT_WINDOW_SECONDS]
+
+    if len(timestamps) >= RATE_LIMIT_MAX_MESSAGES:
+        return False
+
+    timestamps.append(now)
+    return True
+
+
 def match_faq(user_message: str) -> str | None:
     """Answer common questions locally so they cost nothing."""
     lowered = user_message.casefold()
@@ -270,6 +291,13 @@ def get_assistant_response(
     faq_answer = match_faq(message)
     if faq_answer is not None:
         return faq_answer
+
+    if not _check_rate_limit():
+        return (
+            f"You're sending messages a bit quickly -- please wait a moment before "
+            f"asking another question (limit: {RATE_LIMIT_MAX_MESSAGES} per "
+            f"{RATE_LIMIT_WINDOW_SECONDS} seconds)."
+        )
 
     client = _load_client()
     if client is None:

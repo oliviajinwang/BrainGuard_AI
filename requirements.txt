@@ -11,6 +11,5 @@ joblib
 scikit-learn
 matplotlib
 unidecode
-anthropic
 openai>=1.0.0
 pytest

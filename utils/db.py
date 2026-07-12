@@ -88,6 +88,10 @@ def _ensure_extended_record_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE patients ADD COLUMN last_modified_by TEXT")
     if "last_modified_at" not in columns:
         conn.execute("ALTER TABLE patients ADD COLUMN last_modified_at TEXT")
+    if "pin_hash" not in columns:
+        conn.execute("ALTER TABLE patients ADD COLUMN pin_hash TEXT")
+    if "pin_salt" not in columns:
+        conn.execute("ALTER TABLE patients ADD COLUMN pin_salt TEXT")
 
 
 def init_db() -> None:
@@ -136,6 +140,51 @@ def verify_clinician(username: str, password: str) -> dict | None:
     if not hmac.compare_digest(computed_hash, row["password_hash"]):
         return None
     return dict(row)
+
+
+def reset_clinician_password(username: str, new_password: str) -> bool:
+    """Returns False if the username doesn't exist."""
+    conn = get_connection()
+    existing = conn.execute("SELECT 1 FROM clinicians WHERE username = ?", (username.lower().strip(),)).fetchone()
+    if not existing:
+        conn.close()
+        return False
+
+    password_hash, salt = hash_password(new_password)
+    conn.execute(
+        "UPDATE clinicians SET password_hash = ?, password_salt = ? WHERE username = ?",
+        (password_hash, salt, username.lower().strip()),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
+def set_patient_pin(patient_id: int, pin: str) -> None:
+    pin_hash, salt = hash_password(pin)
+    conn = get_connection()
+    conn.execute("UPDATE patients SET pin_hash = ?, pin_salt = ? WHERE id = ?", (pin_hash, salt, patient_id))
+    conn.commit()
+    conn.close()
+    fetch_all_patients.clear()
+
+
+def patient_has_pin(patient_id: int) -> bool:
+    conn = get_connection()
+    row = conn.execute("SELECT pin_hash FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    conn.close()
+    return bool(row and row["pin_hash"])
+
+
+def verify_patient_pin(patient_id: int, pin: str) -> bool:
+    conn = get_connection()
+    row = conn.execute("SELECT pin_hash, pin_salt FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    conn.close()
+    if not row or not row["pin_hash"] or not row["pin_salt"]:
+        return False
+
+    computed_hash, _ = hash_password(pin, salt=row["pin_salt"])
+    return hmac.compare_digest(computed_hash, row["pin_hash"])
 
 
 def _build_extended_record(patient_id: int, data: dict[str, Any]) -> dict[str, Any]:

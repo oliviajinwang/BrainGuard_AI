@@ -301,6 +301,14 @@ with tab_structural:
         }
 
         result = predict_patient(patient)
+        result["fields"] = {
+            "age": cl_age,
+            "education_years": cl_education,
+            "mmse": cl_mmse,
+            "etiv": cl_etiv,
+            "nwbv": cl_nwbv,
+            "asf": cl_asf,
+        }
 
         st.session_state["clinical_result"] = result
 
@@ -449,3 +457,26 @@ with tab_structural:
             f"accuracy here specifically because the model struggles with the "
             f"rare Converted class)."
         )
+
+        if selected_patient_id is not None:
+            if st.session_state.get("confirm_save_structural_id") != selected_patient_id:
+                if st.button("Save to Patient Record", key="save_structural"):
+                    st.session_state.confirm_save_structural_id = selected_patient_id
+                    st.rerun()
+            else:
+                st.warning(f"This will overwrite the saved assessment for **{selected_label}**.")
+                confirm_col, cancel_col = st.columns(2)
+                with confirm_col:
+                    if st.button("Confirm Save", key="confirm_save_structural", type="primary"):
+                        update_assessment(
+                            selected_patient_id, "Structural", result["fields"], result["label"], result["confidence"],
+                            risk_percent=result["risk"], modified_by=st.session_state.get("clinic_user"),
+                        )
+                        st.session_state.pop("confirm_save_structural_id", None)
+                        st.success("Saved to patient record.")
+                with cancel_col:
+                    if st.button("Cancel", key="cancel_save_structural"):
+                        st.session_state.pop("confirm_save_structural_id", None)
+                        st.rerun()
+        else:
+            st.caption("Select a registered patient above to save this result.")

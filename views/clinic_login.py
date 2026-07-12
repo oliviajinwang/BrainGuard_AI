@@ -1,10 +1,10 @@
 import streamlit as st
 
-from utils.db import create_clinician, verify_clinician
+from utils.db import create_clinician, reset_clinician_password, verify_clinician
 
 st.markdown("<div class='bg-section'>Clinic Access</div>", unsafe_allow_html=True)
 
-tab_login, tab_register = st.tabs(["Log In", "Create Account"])
+tab_login, tab_register, tab_reset = st.tabs(["Log In", "Create Account", "Reset Password"])
 
 with tab_login:
     st.write("Log in with your clinician account to continue.")
@@ -47,3 +47,43 @@ with tab_register:
                 st.success("Account created — you can now log in from the Log In tab.")
             else:
                 st.error("That username is already taken.")
+
+with tab_reset:
+    st.write("Forgot your password? Another clinician on your team can reset it for you.")
+    st.caption(
+        "No email system is set up for this prototype, so resets are peer-verified: "
+        "a different, currently-valid clinician account authorizes the change."
+    )
+
+    target_username = st.text_input("Username to reset", key="reset_target_username")
+    new_reset_password = st.text_input("New password", type="password", key="reset_new_password")
+    new_reset_password_confirm = st.text_input(
+        "Confirm new password", type="password", key="reset_new_password_confirm"
+    )
+
+    st.markdown("**Authorizing clinician** (a different, existing account)")
+    auth_col1, auth_col2 = st.columns(2)
+    with auth_col1:
+        authorizer_username = st.text_input("Authorizer's username", key="reset_authorizer_username")
+    with auth_col2:
+        authorizer_password = st.text_input(
+            "Authorizer's password", type="password", key="reset_authorizer_password"
+        )
+
+    if st.button("Reset Password", type="primary", key="reset_submit"):
+        if not target_username.strip() or not new_reset_password:
+            st.error("Username and new password are required.")
+        elif len(new_reset_password) < 8:
+            st.error("New password must be at least 8 characters.")
+        elif new_reset_password != new_reset_password_confirm:
+            st.error("New passwords don't match.")
+        elif target_username.strip().lower() == authorizer_username.strip().lower():
+            st.error("The authorizing account must be a different clinician than the one being reset.")
+        elif verify_clinician(authorizer_username, authorizer_password) is None:
+            st.error("Authorizing clinician's credentials are invalid.")
+        else:
+            reset = reset_clinician_password(target_username.strip(), new_reset_password)
+            if reset:
+                st.success(f"Password reset for '{target_username.strip()}'. You can now log in from the Log In tab.")
+            else:
+                st.error(f"No clinician account found with username '{target_username.strip()}'.")
