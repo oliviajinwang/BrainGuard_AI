@@ -66,9 +66,10 @@ if "patient_result" in st.session_state:
     else:
         st.success(
             "**What this means:** based on the factors entered, this screening did "
-            "not flag elevated risk. This isn't a guarantee — regular checkups "
-            "remain the best way to catch changes early, especially as risk factors "
-            "like age change over time."
+            "not flag elevated risk. **This does not rule out dementia** — this tool "
+            "has no access to MRI scans or cognitive test results, and regular "
+            "checkups remain the best way to catch changes early, especially as risk "
+            "factors like age change over time."
         )
 
     st.caption(
@@ -79,6 +80,11 @@ if "patient_result" in st.session_state:
 
     st.markdown("---")
     st.subheader("See what happens if...")
+    st.caption(
+        "This shows how the model's estimate changes when one input is edited -- it "
+        "illustrates the model's behavior, not a guarantee that making this change "
+        "would cause this same reduction for a real person."
+    )
 
     original_inputs = st.session_state["patient_inputs"]
     modifiable = []
@@ -147,6 +153,10 @@ if "patient_result" in st.session_state:
 
     st.markdown("---")
     st.subheader("Why did the model make this prediction?")
+    st.caption(
+        "These reflect patterns the model learned from training data -- statistical "
+        "associations, not proven causes."
+    )
     st.plotly_chart(
         render_shap_breakdown(result["importance"], top_n=5),
         width="stretch",

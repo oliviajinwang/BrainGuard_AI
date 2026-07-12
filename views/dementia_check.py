@@ -101,9 +101,20 @@ with tab_lifestyle:
             f"Model prediction: **{result['label']}**"
         )
         st.info(RECOMMENDATIONS.get(result["label"], ""))
+        st.caption(
+            "Screening result only -- a Low Risk result does not rule out dementia, "
+            "and a High Risk result does not mean the patient has or will develop "
+            "dementia. Use alongside clinical judgment and, where appropriate, "
+            "further evaluation."
+        )
 
         st.markdown("---")
         st.subheader("See what happens if...")
+        st.caption(
+            "Shows how the model's estimate changes when one input is edited -- this "
+            "illustrates model behavior, not a guarantee that making this change "
+            "would cause this same reduction for this patient."
+        )
 
         ls_original_inputs = st.session_state["lifestyle_inputs"]
         ls_modifiable = []
@@ -172,6 +183,10 @@ with tab_lifestyle:
 
         st.markdown("---")
         st.subheader("Why did the model make this prediction?")
+        st.caption(
+            "These reflect patterns the model learned from training data -- "
+            "statistical associations, not proven causes."
+        )
         st.plotly_chart(
             render_shap_breakdown(result["importance"], top_n=5),
             width="stretch",
@@ -371,13 +386,20 @@ with tab_structural:
         • Predicted class: **{result['label']}**
 
         The probability represents the model's estimate based on patients
-        with similar clinical characteristics in the training data.
-        It is **not** a medical diagnosis.
+        with similar clinical characteristics in the training data. It reflects
+        statistical association, not proven cause, and it is **not** a medical
+        diagnosis. A low estimate does not rule out dementia, and a high
+        estimate does not mean this patient has or will develop dementia.
         """
         )
 
         # SHAP explanation
         st.subheader("Factors influencing this prediction")
+        st.caption(
+            "These show which inputs shifted the model's estimate and by how much "
+            "-- statistical associations learned from training data, not proven "
+            "causes."
+        )
 
         top = (
             result["importance"]

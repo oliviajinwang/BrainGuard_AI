@@ -96,8 +96,8 @@ with st.container(key="options_section"):
         with st.container(border=True, key="clinic_card"):
             st.markdown("<span class='accent-bar accent-bar-violet'></span>", unsafe_allow_html=True)
             st.subheader("Clinic Staff")
-            st.markdown("<span class='tag tag-yellow'>Full diagnostics</span>", unsafe_allow_html=True)
-            st.write("Access the full patient management and diagnostics dashboard.")
+            st.markdown("<span class='tag tag-yellow'>Clinical assessment tools</span>", unsafe_allow_html=True)
+            st.write("Access patient management and decision-support assessment tools.")
             if st.button("Continue as Clinic Staff", type="primary", width="stretch", key="clinic_cta"):
                 st.session_state.role = "clinic"
                 st.rerun()
