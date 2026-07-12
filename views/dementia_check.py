@@ -15,8 +15,6 @@ from src.predict_lifestyle import (
     predict_lifestyle,
 )
 
-
-
 @st.cache_data
 def _load_structural_cohort() -> pd.DataFrame:
     return pd.read_csv("data/clinician_view_data/clinician_mri_clean.csv")
