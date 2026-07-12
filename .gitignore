@@ -3,6 +3,7 @@
 venv/
 ENV/
 __pycache__/
+.pytest_cache/
 
 # Streamlit local secrets (config.toml IS tracked - shared theme)
 .streamlit/secrets.toml
