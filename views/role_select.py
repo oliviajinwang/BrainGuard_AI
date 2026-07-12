@@ -43,6 +43,9 @@ st.markdown(
         text-align: center;
         width: 100%;
     }
+    @media (max-width: 480px) {
+        .select-prompt { font-size: 24px; }
+    }
 
     /* Equal card heights + pin the CTA to the bottom of each card,
        regardless of the description text wrapping to a different number

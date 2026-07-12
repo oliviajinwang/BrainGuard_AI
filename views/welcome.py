@@ -45,6 +45,14 @@ st.markdown(
         text-align: center;
     }
 
+    /* At phone widths, 88px wraps "BrainGuard AI" mid-word ("BrainG" /
+       "uard AI") since the word itself is wider than the viewport. */
+    @media (max-width: 480px) {
+        .hero-title { font-size: 48px; }
+        .hero-subtitle { font-size: 17px; }
+        .hero-eyebrow { font-size: 11px; }
+    }
+
     /* Centers the "Continue" button instead of letting it sit flush-left
        like a normal block-level st.button. st.container() renders as a
        stVerticalBlock, which Streamlit's own base CSS already sets to

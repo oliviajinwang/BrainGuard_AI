@@ -8,7 +8,12 @@ from utils.layout import hide_sidebar, inject_css  #colors/design
 st.set_page_config(
     page_title="BrainGuard AI",
     layout="wide",
-    initial_sidebar_state="expanded",
+    # "auto" (not "expanded") -- expanded forces the sidebar open even on a
+    # phone-width viewport, where it eats most of the screen and leaves the
+    # actual page content squeezed into a sliver. "auto" keeps desktop
+    # behavior identical (still opens by default above Streamlit's ~768px
+    # breakpoint) while letting it collapse on mobile as designed.
+    initial_sidebar_state="auto",
 )
 
 init_db()  # creates database.db here if it doesn't exist yet
