@@ -4,8 +4,14 @@ import streamlit as st
 from utils.action_plan import render_lifestyle_action_plan
 from utils.cohort_chart import render_cohort_scatter
 from utils.db import display_id, fetch_all_patients, update_assessment
-from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, render_risk_gauge, scaled_red_zone_start, threshold_gauge_legend
-from utils.report import RECOMMENDATIONS
+from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, scaled_red_zone_start
+from utils.result_view import (
+    render_lifestyle_gauge_and_recommendation,
+    render_lifestyle_interpretation,
+    render_lifestyle_shap_section,
+    render_lifestyle_validation_performance,
+    render_lifestyle_whatif,
+)
 from utils.shap_chart import render_shap_breakdown
 from src.predict import MODEL_METRICS as CLINICAL_METRICS, predict_patient
 from src.predict_lifestyle import (
@@ -86,114 +92,23 @@ with tab_lifestyle:
 
     if "lifestyle_result" in st.session_state:
         result = st.session_state["lifestyle_result"]
+        ls_original_inputs = st.session_state["lifestyle_inputs"]
         lifestyle_threshold_pct = LIFESTYLE_THRESHOLD * 100
         lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, LIFESTYLE_MAX_REACHABLE_RISK)
-        st.plotly_chart(
-            render_risk_gauge(
-                result["risk"], "Estimated dementia-related probability",
-                high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
-            ),
-            width="stretch",
-            theme=None,
+
+        render_lifestyle_gauge_and_recommendation(result, lifestyle_threshold_pct, lifestyle_red_zone_start)
+        render_lifestyle_interpretation(result, audience="clinician")
+
+        render_lifestyle_whatif(
+            result, ls_original_inputs, lifestyle_threshold_pct, lifestyle_red_zone_start,
+            predict_lifestyle, audience="clinician", key_prefix="ls_",
         )
-        st.caption(
-            f"{threshold_gauge_legend(lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start)}  ·  "
-            f"Model prediction: **{result['label']}**"
-        )
-        st.info(RECOMMENDATIONS.get(result["label"], ""))
 
-        st.markdown("---")
-        st.subheader("See what happens if...")
-
-        ls_original_inputs = st.session_state["lifestyle_inputs"]
-        ls_modifiable = []
-        if ls_original_inputs["smoking"]:
-            ls_modifiable.append(("smoking", "Patient quits smoking"))
-        if ls_original_inputs["hypertension"]:
-            ls_modifiable.append(("hypertension", "Blood pressure is controlled"))
-        if ls_original_inputs["high_cholesterol"]:
-            ls_modifiable.append(("high_cholesterol", "Cholesterol is controlled"))
-
-        if not ls_modifiable:
-            st.caption(
-                "None of the quickly modifiable risk factors this simulator covers "
-                "(smoking, blood pressure, cholesterol) are currently flagged."
-            )
-        else:
-            st.caption("Check any of these to see how estimated risk could change.")
-            ls_changes = {}
-            ls_whatif_cols = st.columns(len(ls_modifiable))
-            for ls_whatif_col, (field, checkbox_label) in zip(ls_whatif_cols, ls_modifiable):
-                with ls_whatif_col:
-                    ls_changes[field] = st.checkbox(checkbox_label, key=f"ls_whatif_{field}")
-
-            if any(ls_changes.values()):
-                ls_whatif_inputs = dict(ls_original_inputs)
-                for field, checked in ls_changes.items():
-                    if checked:
-                        ls_whatif_inputs[field] = 0
-                ls_whatif_result = predict_lifestyle(ls_whatif_inputs)
-
-                ls_gauge_col1, ls_gauge_col2 = st.columns(2)
-                with ls_gauge_col1:
-                    st.plotly_chart(
-                        render_risk_gauge(
-                            result["risk"], "Current estimated probability",
-                            high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
-                        ),
-                        width="stretch",
-                        theme=None,
-                    )
-                with ls_gauge_col2:
-                    st.plotly_chart(
-                        render_risk_gauge(
-                            ls_whatif_result["risk"], "If these changes were made",
-                            high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
-                        ),
-                        width="stretch",
-                        theme=None,
-                    )
-
-                ls_delta = result["risk"] - ls_whatif_result["risk"]
-                if ls_delta > 0.05:
-                    st.success(
-                        f"Estimated risk could drop by **{ls_delta:.1f} percentage points** "
-                        f"(from {result['risk']:.1f}% to {ls_whatif_result['risk']:.1f}%) with "
-                        f"these changes, according to this model."
-                    )
-                elif ls_delta < -0.05:
-                    st.info(
-                        f"According to this model, estimated risk changes from "
-                        f"{result['risk']:.1f}% to {ls_whatif_result['risk']:.1f}% with these "
-                        f"changes."
-                    )
-                else:
-                    st.info("These changes don't meaningfully shift the estimated risk in this model.")
-
-        st.markdown("---")
-        st.subheader("Why did the model make this prediction?")
-        st.plotly_chart(
-            render_shap_breakdown(result["importance"], top_n=5),
-            width="stretch",
-            theme=None,
-        )
-        for _, row in result["importance"].head(5).iterrows():
-            direction = "Increased risk" if row["impact"] > 0 else "Reduced risk"
-            st.write(f"**{row['feature']}** — {direction}\n\n{row['text']}")
+        render_lifestyle_shap_section(result)
 
         render_lifestyle_action_plan(result, ls_original_inputs, predict_lifestyle, key_prefix="ls_")
 
-        st.markdown("---")
-        st.subheader("Validation performance")
-        st.write(f"**Cross-validated AUC:** {LIFESTYLE_METRICS['roc_auc']}%")
-        st.caption(
-            f"Not this patient's result -- this describes how well the model "
-            f"separates higher- from lower-risk profiles across the training "
-            f"data as a whole, with an AUC of {LIFESTYLE_METRICS['roc_auc']}% "
-            f"(50% = random, 100% = perfect). Raw accuracy isn't shown here -- "
-            f"High Risk cases are rare in the training data, so accuracy alone "
-            f"would be misleading."
-        )
+        render_lifestyle_validation_performance(LIFESTYLE_METRICS, audience="clinician")
 
         if selected_patient_id is not None:
             if st.session_state.get("confirm_save_lifestyle_id") != selected_patient_id:
@@ -371,13 +286,20 @@ with tab_structural:
         • Predicted class: **{result['label']}**
 
         The probability represents the model's estimate based on patients
-        with similar clinical characteristics in the training data.
-        It is **not** a medical diagnosis.
+        with similar clinical characteristics in the training data. It reflects
+        statistical association, not proven cause, and it is **not** a medical
+        diagnosis. A low estimate does not rule out dementia, and a high
+        estimate does not mean this patient has or will develop dementia.
         """
         )
 
         # SHAP explanation
         st.subheader("Factors influencing this prediction")
+        st.caption(
+            "These show which inputs shifted the model's estimate and by how much "
+            "-- statistical associations learned from training data, not proven "
+            "causes."
+        )
 
         top = (
             result["importance"]
