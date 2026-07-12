@@ -3,6 +3,7 @@ import streamlit as st
 
 from utils.action_plan import render_lifestyle_action_plan
 from utils.cohort_chart import render_cohort_scatter
+from utils.cohort_ranges import render_structural_input_summary, structural_cohort_ranges
 from utils.db import display_id, fetch_all_patients, update_assessment
 from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, scaled_red_zone_start
 from utils.result_view import (
@@ -166,18 +167,38 @@ with tab_structural:
     with col2:
         st.markdown("### MRI / Clinical Measurements")
 
+        _cohort_ranges = structural_cohort_ranges()
+
+        def _range_note(field: str, unit: str = "") -> str:
+            low, high = _cohort_ranges[field]
+            unit_suffix = f" {unit}" if unit else ""
+            return (
+                f"Training-cohort range in this model's data: {low:g}–{high:g}"
+                f"{unit_suffix} -- not a universal healthy or clinical range."
+            )
+
         cl_mmse = st.slider(
             "MMSE Score",
             0,
             30,
-            27
+            27,
+            help=(
+                "Mini-Mental State Examination score (points, 0-30). A brief cognitive "
+                "screening test normally administered in person by a clinician. "
+                + _range_note("mmse_score", "points")
+            ),
         )
 
         cl_etiv = st.number_input(
             "Estimated Intracranial Volume (eTIV)",
             1000.0,
             2000.0,
-            1450.0
+            1450.0,
+            help=(
+                "Estimated Total Intracranial Volume (cm3), derived from a structural "
+                "MRI scan by neuroimaging analysis software rather than measured "
+                "directly. " + _range_note("estimated_intracranial_volume", "cm3")
+            ),
         )
 
         cl_nwbv = st.number_input(
@@ -185,16 +206,26 @@ with tab_structural:
             0.5,
             0.9,
             0.72,
-            help="Brain volume as a fraction of total intracranial volume, adjusted for "
-            "head size. Lower values mean more brain tissue loss (atrophy), which tends "
-            "to increase with age and neurodegeneration.",
+            help=(
+                "Brain volume as a fraction of total intracranial volume (unitless "
+                "ratio, 0-1), adjusted for head size and derived from MRI segmentation "
+                "software. Lower values mean more brain tissue loss (atrophy), which "
+                "tends to increase with age and neurodegeneration. "
+                + _range_note("normalized_whole_brain_volume")
+            ),
         )
 
         cl_asf = st.number_input(
             "Atlas Scaling Factor (ASF)",
             0.5,
             2.0,
-            1.10
+            1.10,
+            help=(
+                "Atlas Scaling Factor (unitless), a scaling constant computed during "
+                "MRI processing to align a scan with a standard brain atlas template "
+                "-- a technical imaging value, not measured directly from the patient. "
+                + _range_note("atlas_scaling_factor")
+            ),
         )
 
     if st.button(
@@ -225,6 +256,7 @@ with tab_structural:
         }
 
         st.session_state["clinical_result"] = result
+        st.session_state["clinical_inputs"] = patient
 
     if "clinical_result" in st.session_state:
 
@@ -292,6 +324,11 @@ with tab_structural:
         estimate does not mean this patient has or will develop dementia.
         """
         )
+
+        if "clinical_inputs" in st.session_state:
+            st.divider()
+            st.subheader("Inputs analyzed")
+            render_structural_input_summary(st.session_state["clinical_inputs"])
 
         # SHAP explanation
         st.subheader("Factors influencing this prediction")

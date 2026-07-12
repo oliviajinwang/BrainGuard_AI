@@ -79,6 +79,10 @@ with st.container(key="back_link"):
 
 with st.container(key="options_section"):
     st.markdown("<div class='select-prompt'>Please select how you'd like to continue</div>", unsafe_allow_html=True)
+    st.caption(
+        "BrainGuard AI is a demonstration prototype. Please do not enter real "
+        "personal or protected health information (PHI) in either portal."
+    )
     st.write("")
 
     col1, col2 = st.columns(2)
