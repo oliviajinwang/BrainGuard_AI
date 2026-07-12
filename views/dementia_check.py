@@ -90,7 +90,7 @@ with tab_lifestyle:
         lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, LIFESTYLE_MAX_REACHABLE_RISK)
         st.plotly_chart(
             render_risk_gauge(
-                result["risk"], "Estimated dementia risk",
+                result["risk"], "Estimated dementia-related probability",
                 high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
             ),
             width="stretch",
@@ -138,7 +138,7 @@ with tab_lifestyle:
                 with ls_gauge_col1:
                     st.plotly_chart(
                         render_risk_gauge(
-                            result["risk"], "Current estimated risk",
+                            result["risk"], "Current estimated probability",
                             high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
                         ),
                         width="stretch",
@@ -184,14 +184,15 @@ with tab_lifestyle:
         render_lifestyle_action_plan(result, ls_original_inputs, predict_lifestyle, key_prefix="ls_")
 
         st.markdown("---")
-        st.subheader("Model confidence rating")
-        st.write(f"**Model confidence:** {LIFESTYLE_METRICS['roc_auc']}%")
+        st.subheader("Validation performance")
+        st.write(f"**Cross-validated AUC:** {LIFESTYLE_METRICS['roc_auc']}%")
         st.caption(
-            f"Not this patient's result -- in cross-validated testing this model "
-            f"separates higher- from lower-risk profiles with an AUC of "
-            f"{LIFESTYLE_METRICS['roc_auc']}% (50% = random, 100% = perfect). Raw "
-            f"accuracy isn't shown here -- High Risk cases are rare in the training "
-            f"data, so accuracy alone would be misleading."
+            f"Not this patient's result -- this describes how well the model "
+            f"separates higher- from lower-risk profiles across the training "
+            f"data as a whole, with an AUC of {LIFESTYLE_METRICS['roc_auc']}% "
+            f"(50% = random, 100% = perfect). Raw accuracy isn't shown here -- "
+            f"High Risk cases are rare in the training data, so accuracy alone "
+            f"would be misleading."
         )
 
         if selected_patient_id is not None:
@@ -332,7 +333,7 @@ with tab_structural:
 
             <hr>
 
-            <h3>Estimated dementia risk</h3>
+            <h3>Estimated dementia-related probability</h3>
 
             <h1>{result['risk']:.1f}%</h1>
 
@@ -353,7 +354,7 @@ with tab_structural:
         st.plotly_chart(
             render_class_gauge(
                 result["risk"],
-                "Estimated probability of dementia",
+                "Estimated dementia-related probability",
                 color,
             ),
             width="stretch",
@@ -365,7 +366,7 @@ with tab_structural:
             f"""
         **How should this be interpreted?**
 
-        • Estimated dementia probability: **{result['risk']:.1f}%**
+        • Estimated dementia-related probability: **{result['risk']:.1f}%**
 
         • Predicted class: **{result['label']}**
 
@@ -444,8 +445,8 @@ with tab_structural:
         )
 
         st.markdown("---")
-        st.subheader("Model confidence rating")
-        st.write(f"**Model confidence:** {CLINICAL_METRICS['accuracy']}%")
+        st.subheader("Validation performance")
+        st.write(f"**Cross-validated accuracy:** {CLINICAL_METRICS['accuracy']}%")
         st.caption(
             f"Not this patient's result -- in cross-validated testing that keeps "
             f"each patient's repeat visits entirely on one side of the split, this "

@@ -77,7 +77,7 @@ def build_pdf_report(patient: dict) -> bytes:
     for label, value in [
         ("Assessment Type", patient.get("assessment_type") or "-"),
         ("Prediction", prediction or "Not yet assessed"),
-        ("Confidence", f"{confidence:.1f}%" if confidence is not None else "-"),
+        ("Prediction Probability", f"{confidence:.1f}%" if confidence is not None else "-"),
     ]:
         pdf.cell(50, 7, label)
         pdf.cell(0, 7, _pdf_safe(value), new_x="LMARGIN", new_y="NEXT")

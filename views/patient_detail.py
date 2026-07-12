@@ -68,7 +68,7 @@ def _render_overview_sidebar(record: dict) -> None:
             if (overview.get("prediction_label") or "Pending") in ["Pending", "Low Risk", "Mild Cognitive Impairment", "Early-stage Dementia", "Moderate Dementia", "High Risk"]
             else 0,
         )
-        overview["confidence"] = st.number_input("Confidence Score (%)", min_value=0.0, max_value=100.0, value=float(overview["confidence"]), step=0.1, format="%.2f")
+        overview["confidence"] = st.number_input("Prediction Probability (%)", min_value=0.0, max_value=100.0, value=float(overview["confidence"]), step=0.1, format="%.2f")
         overview["registration_date"] = st.date_input(
             "Registration Date",
             value=parse_iso_date(overview["registration_date"]),
@@ -76,7 +76,7 @@ def _render_overview_sidebar(record: dict) -> None:
 
         st.markdown(
             f"<span class='ehr-badge'>Risk</span> {overview['prediction_label']}"
-            f"<br><span class='ehr-badge'>Confidence</span> {overview['confidence']:.0f}%",
+            f"<br><span class='ehr-badge'>Prediction Probability</span> {overview['confidence']:.0f}%",
             unsafe_allow_html=True,
         )
 
@@ -390,7 +390,7 @@ with header_left:
 with header_right:
     st.metric("Dementia Risk", overview.get("prediction_label") or "Pending")
     confidence = overview.get("confidence") or 0.0
-    st.metric("Confidence", f"{confidence:.0f}%" if confidence else "—")
+    st.metric("Prediction Probability", f"{confidence:.0f}%" if confidence else "—")
 
 if st.button("Open Patient AI Conversation", type="secondary"):
     st.switch_page("views/patient_ai_conversation.py")

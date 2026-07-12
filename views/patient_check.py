@@ -40,7 +40,7 @@ if "patient_result" in st.session_state:
     lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, MAX_REACHABLE_RISK)
     st.plotly_chart(
         render_risk_gauge(
-            result["risk"], "Estimated dementia risk",
+            result["risk"], "Estimated dementia-related probability",
             high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
         ),
         width="stretch",
@@ -113,7 +113,7 @@ if "patient_result" in st.session_state:
             with gauge_col1:
                 st.plotly_chart(
                     render_risk_gauge(
-                        result["risk"], "Current estimated risk",
+                        result["risk"], "Current estimated probability",
                         high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
                     ),
                     width="stretch",
@@ -159,15 +159,16 @@ if "patient_result" in st.session_state:
     render_lifestyle_action_plan(result, st.session_state["patient_inputs"], predict_lifestyle)
 
     st.markdown("---")
-    st.subheader("Model confidence rating")
-    st.write(f"**Model confidence:** {MODEL_METRICS['roc_auc']}%")
+    st.subheader("Validation performance")
+    st.write(f"**Cross-validated AUC:** {MODEL_METRICS['roc_auc']}%")
     st.caption(
-        f"In cross-validated testing, this model distinguishes higher-risk from "
-        f"lower-risk profiles with an AUC of {MODEL_METRICS['roc_auc']}% "
-        f"(50% = random guessing, 100% = perfect separation). Raw accuracy isn't "
-        f"a meaningful number here — High Risk cases are rare in the training "
-        f"data (about 1 in 20), so a model that always guessed \"Low Risk\" would "
-        f"score misleadingly high on accuracy alone. This is a general statement "
-        f"about the model, not a statement about your specific result above (that's "
-        f"the gauge at the top)."
+        f"This describes how well the model separates higher-risk from "
+        f"lower-risk profiles across the training data as a whole (AUC = area "
+        f"under the ROC curve; 50% = random guessing, 100% = perfect "
+        f"separation). Raw accuracy isn't shown here — High Risk cases are "
+        f"rare in the training data (about 1 in 20), so a model that always "
+        f"guessed \"Low Risk\" would score misleadingly high on accuracy "
+        f"alone. This is a general statement about the model's validated "
+        f"performance, not a statement about your specific result above "
+        f"(that's the gauge at the top)."
     )
