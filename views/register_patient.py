@@ -4,6 +4,12 @@ from utils.db import display_id, insert_patient, set_patient_pin
 
 st.markdown("<div class='bg-section'>Register Patient</div>", unsafe_allow_html=True)
 st.write("Enter the patient's personal and contact details to create a new record.")
+st.warning(
+    "**Demonstration environment.** This prototype is not a secure clinical "
+    "record system. Please use a fictitious name and contact details for "
+    "testing -- do not enter your real personal or protected health "
+    "information (PHI)."
+)
 
 with st.form("register_patient_form", clear_on_submit=True):
     st.subheader("Personal Information")
