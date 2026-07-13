@@ -5,6 +5,7 @@ plotly
 pandas
 fpdf2
 qrcode[pil]
+Pillow
 xgboost
 shap
 joblib

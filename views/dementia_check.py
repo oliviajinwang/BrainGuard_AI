@@ -8,6 +8,7 @@ from utils.cohort_chart import render_cohort_scatter
 from utils.cohort_ranges import render_structural_input_summary, structural_cohort_ranges
 from utils.db import display_id, fetch_all_patients, update_assessment
 from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, scaled_red_zone_start
+from utils.i18n import t
 from utils.result_view import (
     render_lifestyle_gauge_and_recommendation,
     render_lifestyle_interpretation,
@@ -37,23 +38,21 @@ STRUCTURAL_LABEL_COLORS = {
     "Converted": COLOR_WARNING,
 }
 
-st.markdown("<div class='bg-section'>Dementia Check</div>", unsafe_allow_html=True)
-st.write("Run an AI-assisted dementia risk assessment using lifestyle or clinical data.")
-st.caption(
-    "AI-assisted dementia risk estimation based on clinical and MRI-derived features."
-)
+st.markdown(f"<div class='bg-section'>{t('dementia_check')}</div>", unsafe_allow_html=True)
+st.write(t("dementia_check_prompt"))
+st.caption(t("dementia_check_caption"))
 
 patients_df = fetch_all_patients()
-patient_options = {"— Quick assessment (not saved) —": None}
+patient_options = {t("quick_assessment"): None}
 for _, row in patients_df.iterrows():
     patient_options[f"{display_id(row['id'])} - {row['full_name']}"] = int(row["id"])
 
-selected_label = st.selectbox("Patient", list(patient_options.keys()))
+selected_label = st.selectbox(t("patient_label"), list(patient_options.keys()))
 selected_patient_id = patient_options[selected_label]
 
 
 tab_lifestyle, tab_structural = st.tabs(
-    ["Lifestyle Assessment", "Structural Neuroimaging"]
+    [t("lifestyle_assessment"), t("structural_neuroimaging")]
 )
 
 with tab_lifestyle:

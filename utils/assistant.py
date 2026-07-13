@@ -209,11 +209,30 @@ def _read_setting(name: str) -> str | None:
     return value.strip() if value else None
 
 
+def _is_usable_api_key(api_key: str | None) -> bool:
+    """Reject empty keys and common local placeholders."""
+    if not api_key:
+        return False
+    lowered = api_key.casefold()
+    placeholders = (
+        "replace_with_your_openai_api_key",
+        "your-api-key",
+        "your_api_key",
+        "sk-your",
+        "changeme",
+        "todo",
+    )
+    if any(token in lowered for token in placeholders):
+        return False
+    # Real OpenAI keys are longer than a short placeholder string.
+    return len(api_key) >= 20
+
+
 @st.cache_resource
 def _load_client() -> OpenAI | None:
     """Create and cache the OpenAI client."""
     api_key = _read_setting("OPENAI_API_KEY")
-    if not api_key:
+    if not _is_usable_api_key(api_key):
         return None
 
     return OpenAI(
@@ -312,8 +331,10 @@ def get_assistant_response(
     client = _load_client()
     if client is None:
         return (
-            "The extended assistant is not configured right now. I can still answer "
-            "common questions about BrainGuard AI and general dementia risk factors. "
+            "The extended assistant is not configured right now. Add a real "
+            "OPENAI_API_KEY in `.streamlit/secrets.toml` (not the placeholder), "
+            "then restart Streamlit. Until then I can still answer common "
+            "questions about BrainGuard AI and general dementia risk factors. "
             "For concerns about a real person's health, please contact a physician."
         )
 
@@ -341,10 +362,13 @@ def get_assistant_response(
         return reply
 
     except Exception as exc:
-        print(f"BrainGuard assistant error: {type(exc).__name__}")
+        # Surface the real failure in the terminal so setup issues are diagnosable.
+        print(f"BrainGuard assistant error: {type(exc).__name__}: {exc}")
 
         return (
-            "I couldn't reach the extended assistant just now. Common BrainGuard "
-            "questions will still work. For personal health concerns, please contact "
-            "a licensed physician."
+            "I couldn't reach the OpenAI assistant just now "
+            f"({type(exc).__name__}). Check that OPENAI_API_KEY is valid and that "
+            "the model name is available on your account. Common BrainGuard "
+            "questions will still work. For personal health concerns, please "
+            "contact a licensed physician."
         )

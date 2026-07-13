@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from utils.db import delete_patient, display_id, fetch_all_patients, get_patient, insert_patient, load_patient_record, resolve_patient_id_from_query, search_patients
+from utils.i18n import t
 
 IMPORT_COLUMNS = ["full_name", "gender", "age", "phone", "email", "address", "emergency_contact"]
 
@@ -32,12 +33,12 @@ if st.session_state.get("import_result"):
             hide_index=True,
         )
 
-st.markdown("<div class='bg-section'>Patient History</div>", unsafe_allow_html=True)
-st.caption("Searchable list of all registered patients.")
+st.markdown(f"<div class='bg-section'>{t('patient_history')}</div>", unsafe_allow_html=True)
+st.caption(t("patient_history_caption"))
 
 col1, col2 = st.columns([3, 1])
 with col1:
-    query_input = st.text_input("Search by name or Patient ID")
+    query_input = st.text_input(t("search_patient"))
     query = query_input
     if query_input.strip():
         matches = [
@@ -47,14 +48,21 @@ with col1:
         ]
         if matches:
             query = st.selectbox(
-                "Matching patients",
+                t("matching_patients"),
                 matches,
                 label_visibility="collapsed",
                 key="history_search_pick",
             )
 
 with col2:
-    risk_filter = st.selectbox("Risk Filter", ["All", "High Risk", "Low Risk", "Pending"])
+    risk_options = {
+        t("risk_all"): "All",
+        t("risk_high"): "High Risk",
+        t("risk_low"): "Low Risk",
+        t("risk_pending"): "Pending",
+    }
+    risk_label = st.selectbox(t("risk_filter"), list(risk_options.keys()))
+    risk_filter = risk_options[risk_label]
 
 selected_patient_id = resolve_patient_id_from_query(query) if query_input.strip() else None
 
@@ -76,7 +84,7 @@ else:
 results = search_patients(query=query, risk_filter=risk_filter)
 
 if results.empty:
-    st.info("No registered patients found. Register a patient to add them to this list.")
+    st.info(t("no_patients_found"))
 else:
     display_df = results.copy()
     display_df["Patient ID"] = display_df["id"].apply(display_id)
@@ -99,33 +107,33 @@ else:
     st.dataframe(view_df, width="stretch", hide_index=True)
 
     st.download_button(
-        "Export CSV",
+        t("export_csv"),
         data=view_df.to_csv(index=False).encode("utf-8"),
         file_name="brainguard_patients.csv",
         mime="text/csv",
     )
 
     st.markdown("---")
-    st.subheader("Delete a Patient")
+    st.subheader(t("delete_patient"))
     delete_options = {f"{display_id(r['id'])} - {r['full_name']}": int(r["id"]) for _, r in results.iterrows()}
-    delete_label = st.selectbox("Select patient to delete", list(delete_options.keys()), key="delete_select")
+    delete_label = st.selectbox(t("select_patient_delete"), list(delete_options.keys()), key="delete_select")
     delete_id = delete_options[delete_label]
 
     if st.session_state.get("confirm_delete_id") != delete_id:
-        if st.button("Delete Patient", type="primary"):
+        if st.button(t("delete_patient"), type="primary"):
             st.session_state.confirm_delete_id = delete_id
             st.rerun()
     else:
         st.error(f"This will permanently delete **{delete_label}** and cannot be undone.")
         confirm_col, cancel_col = st.columns(2)
         with confirm_col:
-            if st.button("Confirm Delete", type="primary", key="confirm_delete_btn"):
+            if st.button(t("confirm_delete"), type="primary", key="confirm_delete_btn"):
                 delete_patient(delete_id)
                 st.session_state.pop("confirm_delete_id", None)
-                st.success("Patient deleted.")
+                st.success(t("patient_deleted"))
                 st.rerun()
         with cancel_col:
-            if st.button("Cancel", key="cancel_delete_btn"):
+            if st.button(t("cancel"), key="cancel_delete_btn"):
                 st.session_state.pop("confirm_delete_id", None)
                 st.rerun()
 

@@ -1,8 +1,20 @@
+import importlib
 import os
 
 import streamlit as st
 
-from utils.db import create_clinician, reset_clinician_password, verify_clinician
+import utils.db as _db
+
+# Always reload: Streamlit's long-lived process can keep an outdated utils.db
+# in sys.modules after git pulls, which caused:
+# ImportError: cannot import name 'create_clinician'
+_db = importlib.reload(_db)
+create_clinician = _db.create_clinician
+get_clinician_profile = _db.get_clinician_profile
+reset_clinician_password = _db.reset_clinician_password
+verify_clinician = _db.verify_clinician
+
+from utils.i18n import apply_clinician_language, t
 
 # Shared invite code required to create a clinician account, so a public
 # deployment can't have anyone self-register into the full patient dashboard.
@@ -21,7 +33,7 @@ def _clinic_signup_code() -> str:
     return (os.getenv("CLINIC_SIGNUP_CODE") or _DEFAULT_SIGNUP_CODE).strip()
 
 
-st.markdown("<div class='bg-section'>Clinic Access</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='bg-section'>{t('clinic_access')}</div>", unsafe_allow_html=True)
 st.warning(
     "**Demonstration access only.** This clinic portal is a prototype, not a "
     "production clinical system. Do not enter real patient names, contact "
@@ -29,26 +41,35 @@ st.warning(
     "portal -- use fictitious or test data only."
 )
 
-tab_login, tab_register, tab_reset = st.tabs(["Log In", "Create Account", "Reset Password"])
+tab_login, tab_register, tab_reset = st.tabs([t("tab_login"), t("tab_register"), t("tab_reset")])
 
 with tab_login:
-    st.write("Log in with your clinician account to continue.")
-    login_username = st.text_input("Username", key="login_username")
-    login_password = st.text_input("Password", type="password", key="login_password")
+    st.write(t("login_prompt"))
+    login_username = st.text_input(t("username"), key="login_username")
+    login_password = st.text_input(t("password"), type="password", key="login_password")
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Log In", type="primary", width="stretch"):
+        if st.button(t("log_in"), type="primary", width="stretch"):
             clinician = verify_clinician(login_username, login_password)
             if clinician:
                 st.session_state.clinic_authenticated = True
                 st.session_state.clinic_user = clinician["username"]
                 st.session_state.clinic_display_name = clinician["display_name"]
+                st.session_state.clinic_clinician_id = clinician.get("id")
+                st.session_state.dp_edit_mode = False
+                account = get_clinician_profile(clinician["username"])
+                if account:
+                    apply_clinician_language(account["profile"].get("preferred_language"))
+                    st.session_state._language_loaded_for = clinician["username"]
+                    st.session_state.clinic_display_name = (
+                        account["profile"].get("full_name") or clinician["display_name"]
+                    )
                 st.rerun()
             else:
-                st.error("Invalid username or password.")
+                st.error(t("invalid_credentials"))
     with col2:
-        if st.button("Back", width="stretch", key="login_back"):
+        if st.button(t("back"), width="stretch", key="login_back"):
             st.session_state.role = None
             st.rerun()
 

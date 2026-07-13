@@ -94,12 +94,19 @@ def _ensure_extended_record_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE patients ADD COLUMN pin_salt TEXT")
 
 
+def _ensure_clinician_profile_column(conn: sqlite3.Connection) -> None:
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(clinicians)")}
+    if "profile_json" not in columns:
+        conn.execute("ALTER TABLE clinicians ADD COLUMN profile_json TEXT")
+
+
 def init_db() -> None:
     conn = get_connection()
     conn.execute(_SCHEMA)
     conn.execute(_CLINICIANS_SCHEMA)
     conn.execute(_ASSESSMENT_HISTORY_SCHEMA)
     _ensure_extended_record_column(conn)
+    _ensure_clinician_profile_column(conn)
     conn.commit()
     conn.close()
 
@@ -158,6 +165,285 @@ def reset_clinician_password(username: str, new_password: str) -> bool:
     conn.commit()
     conn.close()
     return True
+
+
+def default_clinician_profile(clinician_id: int | None = None, display_name: str = "") -> dict[str, Any]:
+    """Baseline editable profile fields for a clinician account."""
+    employee_id = f"D{int(clinician_id):04d}" if clinician_id else ""
+    return {
+        "full_name": display_name or "",
+        "title": "Physician",
+        "department": "Neurology",
+        "employee_id": employee_id,
+        "hospital_name": "BrainGuard Partner Hospital",
+        "years_experience": 0,
+        "email": "",
+        "phone": "",
+        "specialty": "Cognitive Neurology",
+        "certifications": "",
+        "license_number": "",
+        "education": "",
+        "languages": "English",
+        "research_interests": "",
+        "biography": "",
+        "preferred_language": "en",
+        "theme_preference": "system",
+        "photo_data_url": "",
+        "notifications": {
+            "email_alerts": True,
+            "high_risk_alerts": True,
+            "appointment_reminders": True,
+            "ai_summary_alerts": True,
+        },
+        "activity": [],
+    }
+
+
+def get_clinician(username: str) -> dict[str, Any] | None:
+    conn = get_connection()
+    _ensure_clinician_profile_column(conn)
+    row = conn.execute(
+        "SELECT * FROM clinicians WHERE username = ?",
+        (username.lower().strip(),),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_clinician_profile(username: str) -> dict[str, Any] | None:
+    """Return account + editable profile for the logged-in clinician."""
+    row = get_clinician(username)
+    if not row:
+        return None
+
+    profile = default_clinician_profile(row.get("id"), row.get("display_name") or "")
+    if row.get("profile_json"):
+        try:
+            stored = json.loads(row["profile_json"])
+            if isinstance(stored, dict):
+                notifications = profile["notifications"].copy()
+                activity = list(profile["activity"])
+                profile.update({k: v for k, v in stored.items() if k not in {"notifications", "activity"}})
+                if isinstance(stored.get("notifications"), dict):
+                    notifications.update(stored["notifications"])
+                if isinstance(stored.get("activity"), list):
+                    activity = stored["activity"]
+                profile["notifications"] = notifications
+                profile["activity"] = activity
+        except (TypeError, json.JSONDecodeError):
+            pass
+
+    if not profile.get("full_name"):
+        profile["full_name"] = row.get("display_name") or username
+    if not profile.get("employee_id") and row.get("id") is not None:
+        profile["employee_id"] = f"D{int(row['id']):04d}"
+
+    # Normalize language / theme for older saved profiles.
+    from utils.i18n import normalize_language
+
+    profile["preferred_language"] = normalize_language(profile.get("preferred_language"))
+    if profile.get("theme_preference") not in {"system", "light", "dark"}:
+        profile["theme_preference"] = "system"
+
+    return {
+        "id": int(row["id"]),
+        "username": row["username"],
+        "display_name": row.get("display_name") or profile["full_name"],
+        "created_at": row.get("created_at") or "",
+        "profile": profile,
+    }
+
+
+def save_clinician_profile(username: str, profile: dict[str, Any]) -> bool:
+    """Persist editable profile fields and sync display_name from full_name."""
+    row = get_clinician(username)
+    if not row:
+        return False
+
+    merged = default_clinician_profile(row.get("id"), row.get("display_name") or "")
+    notifications = merged["notifications"].copy()
+    activity = list(merged.get("activity") or [])
+    if isinstance(profile.get("notifications"), dict):
+        notifications.update(profile["notifications"])
+    if isinstance(profile.get("activity"), list):
+        activity = profile["activity"][-50:]
+
+    for key, value in profile.items():
+        if key in {"notifications", "activity"}:
+            continue
+        merged[key] = value
+    merged["notifications"] = notifications
+    merged["activity"] = activity
+
+    from utils.i18n import normalize_language
+
+    merged["preferred_language"] = normalize_language(merged.get("preferred_language"))
+    if merged.get("theme_preference") not in {"system", "light", "dark"}:
+        merged["theme_preference"] = "system"
+
+    display_name = (merged.get("full_name") or row.get("display_name") or username).strip()
+    conn = get_connection()
+    _ensure_clinician_profile_column(conn)
+    conn.execute(
+        "UPDATE clinicians SET display_name = ?, profile_json = ? WHERE username = ?",
+        (display_name, json.dumps(merged), username.lower().strip()),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
+def log_clinician_activity(username: str, action: str, detail: str = "") -> None:
+    """Append a recent-activity entry to the clinician's profile."""
+    account = get_clinician_profile(username)
+    if not account:
+        return
+    profile = account["profile"]
+    activity = list(profile.get("activity") or [])
+    activity.insert(
+        0,
+        {
+            "action": action,
+            "detail": detail,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        },
+    )
+    profile["activity"] = activity[:50]
+    save_clinician_profile(username, profile)
+
+
+def get_clinician_dashboard_stats(username: str) -> dict[str, int]:
+    """Live clinic stats personalized with clinician-attributed activity where available."""
+    df = fetch_all_patients()
+    total_patients = int(len(df))
+    high_risk = int(df["prediction_label"].isin(HIGH_RISK_LABELS).sum()) if total_patients else 0
+
+    today = date.today().isoformat()
+    conn = get_connection()
+    seen_today = conn.execute(
+        "SELECT COUNT(*) AS n FROM assessment_history "
+        "WHERE date(recorded_at) = ? AND lower(coalesce(recorded_by, '')) = ?",
+        (today, username.lower().strip()),
+    ).fetchone()["n"]
+    ai_reviews = conn.execute(
+        "SELECT COUNT(*) AS n FROM assessment_history "
+        "WHERE lower(coalesce(recorded_by, '')) = ?",
+        (username.lower().strip(),),
+    ).fetchone()["n"]
+    conn.close()
+
+    upcoming = 0
+    for _, row in df.iterrows():
+        raw = row.get("extended_record")
+        if not raw:
+            continue
+        try:
+            record = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        for appt in record.get("appointments") or []:
+            appt_date = str(appt.get("date") or "")
+            if appt_date >= today:
+                upcoming += 1
+
+    return {
+        "total_patients": total_patients,
+        "patients_seen_today": int(seen_today or 0),
+        "high_risk_cases": high_risk,
+        "ai_reports_reviewed": int(ai_reviews or 0),
+        "upcoming_appointments": upcoming,
+    }
+
+
+def get_clinic_schedule(days_ahead: int = 14, limit: int = 12) -> list[dict[str, Any]]:
+    """Aggregate upcoming appointments across patient records."""
+    today = date.today()
+    horizon = today.toordinal() + max(days_ahead, 0)
+    items: list[dict[str, Any]] = []
+
+    for _, row in fetch_all_patients().iterrows():
+        raw = row.get("extended_record")
+        if not raw:
+            continue
+        try:
+            record = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        patient_name = row.get("full_name") or display_id(int(row["id"]))
+        for appt in record.get("appointments") or []:
+            appt_date = str(appt.get("date") or "")
+            try:
+                parsed = date.fromisoformat(appt_date)
+            except ValueError:
+                continue
+            if parsed.toordinal() < today.toordinal() or parsed.toordinal() > horizon:
+                continue
+            items.append(
+                {
+                    "date": appt_date,
+                    "time": str(appt.get("time") or "—"),
+                    "patient_name": patient_name,
+                    "patient_id": display_id(int(row["id"])),
+                    "visit_type": str(appt.get("title") or "Clinic visit"),
+                    "provider": str(appt.get("provider") or ""),
+                    "status": "Today" if parsed == today else "Upcoming",
+                    "notes": str(appt.get("notes") or ""),
+                }
+            )
+
+    items.sort(key=lambda item: (item["date"], item["time"]))
+    return items[:limit]
+
+
+def get_clinician_recent_activity(username: str, limit: int = 8) -> list[dict[str, Any]]:
+    """Merge profile activity with clinician-attributed assessment history."""
+    events: list[dict[str, Any]] = []
+    account = get_clinician_profile(username)
+    if account:
+        for item in account["profile"].get("activity") or []:
+            events.append(
+                {
+                    "action": item.get("action") or "Activity",
+                    "detail": item.get("detail") or "",
+                    "timestamp": item.get("timestamp") or "",
+                }
+            )
+
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT a.recorded_at, a.assessment_type, a.prediction_label, p.full_name, a.patient_id "
+        "FROM assessment_history a "
+        "LEFT JOIN patients p ON p.id = a.patient_id "
+        "WHERE lower(coalesce(a.recorded_by, '')) = ? "
+        "ORDER BY a.recorded_at DESC LIMIT ?",
+        (username.lower().strip(), limit),
+    ).fetchall()
+    conn.close()
+
+    for row in rows:
+        name = row["full_name"] or display_id(int(row["patient_id"]))
+        events.append(
+            {
+                "action": "Dementia assessment completed",
+                "detail": f"{name} · {row['assessment_type'] or 'Assessment'} · {row['prediction_label'] or 'Pending'}",
+                "timestamp": row["recorded_at"] or "",
+            }
+        )
+
+    # Also surface recent patient chart edits attributed to this clinician.
+    for _, row in fetch_all_patients().iterrows():
+        if str(row.get("last_modified_by") or "").lower() != username.lower().strip():
+            continue
+        events.append(
+            {
+                "action": "Updated patient record",
+                "detail": f"{row.get('full_name') or display_id(int(row['id']))}",
+                "timestamp": row.get("last_modified_at") or "",
+            }
+        )
+
+    events.sort(key=lambda item: item.get("timestamp") or "", reverse=True)
+    return events[:limit]
 
 
 def set_patient_pin(patient_id: int, pin: str) -> None:
