@@ -51,6 +51,14 @@ if "patient_result" in st.session_state:
     # thin sliver under a mostly-red 0-100 dial.
     lifestyle_axis_max = min(100.0, math.ceil(MAX_REACHABLE_RISK / 5) * 5)
 
+    # Lead with the framing before the confident-looking number, so a
+    # first-time patient reads "screening, not diagnosis" before the gauge.
+    st.info(
+        "**This is a screening estimate, not a diagnosis.** The number below reflects "
+        "everyday lifestyle factors only — it can't detect or rule out dementia, and it "
+        "doesn't replace a doctor's evaluation."
+    )
+
     render_lifestyle_gauge_and_recommendation(
         result, lifestyle_threshold_pct, lifestyle_red_zone_start, axis_max=lifestyle_axis_max
     )
