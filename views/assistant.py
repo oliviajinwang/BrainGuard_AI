@@ -24,6 +24,12 @@ st.caption(
     "This assistant cannot diagnose anyone or give personal medical advice. "
     "Messages are stored in the selected patient record."
 )
+st.warning(
+    "**Demonstration environment.** Anything you type here is saved to this "
+    "prototype's shared patient record and can be read by clinic users. Please "
+    "don't enter real names, contact details, or other protected health "
+    "information (PHI) -- use test data only."
+)
 
 if not assistant_available():
     st.info(
