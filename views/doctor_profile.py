@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 from html import escape
 
@@ -230,7 +231,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 .dp-stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.85rem;
 }
 .dp-stat {
@@ -365,7 +366,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     font-family: var(--font-mono, monospace);
     margin-top: 0.3rem;
 }
-.dp-spacer { height: 0.85rem; }
+.dp-spacer { height: 1.35rem; }
 .dp-toast {
     position: fixed;
     top: 22px;
@@ -398,6 +399,18 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+@keyframes dp-expand-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+        clip-path: inset(0 0 100% 0);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        clip-path: inset(0 0 0 0);
+    }
+}
 @keyframes dp-toast-in {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -405,6 +418,16 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 @keyframes dp-toast-out {
     from { opacity: 1; }
     to { opacity: 0; visibility: hidden; }
+}
+.st-key-dp_edit_panel {
+    animation: dp-expand-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) both !important;
+    overflow: hidden !important;
+}
+.st-key-dp_stats_panel,
+.st-key-dp_schedule_panel,
+.st-key-dp_activity_panel {
+    animation: dp-fade-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) both !important;
+    transition: margin-top 0.35s ease;
 }
 .st-key-dp_save_btn button,
 .st-key-dp_edit_btn button,
@@ -419,6 +442,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     transform: translateY(-2px);
     box-shadow: 0 8px 18px rgba(20, 40, 65, 0.16);
 }
+@media (max-width: 1100px) {
+    .dp-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 900px) {
     .dp-page-title { font-size: 30px; }
     .dp-name { font-size: 26px; }
@@ -426,6 +452,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     .dp-avatar-wrap, .st-key-dp_avatar_block { width: 96px !important; min-height: 96px !important; }
     .dp-avatar, .dp-avatar-img { width: 96px; height: 96px; font-size: 1.6rem; }
     .dp-details { grid-template-columns: 1fr; }
+    .dp-stats-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
     .dp-stats-grid { grid-template-columns: 1fr; }
 }
 </style>
@@ -480,6 +509,8 @@ schedule = get_clinic_schedule()
 activity = get_clinician_recent_activity(username)
 doctor_name = profile.get("full_name") or account["display_name"]
 st.session_state.setdefault("dp_last_photo_digest", None)
+st.session_state.setdefault("dp_edit_mode", False)
+st.session_state.setdefault("dp_form_nonce", 0)
 
 st.markdown(_PROFILE_CSS, unsafe_allow_html=True)
 st.markdown("<div class='dp-page'>", unsafe_allow_html=True)
@@ -489,167 +520,209 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-edit_mode = st.session_state.get("dp_edit_mode", False)
-
-# ---- Large profile card + statistics ----
-left, right = st.columns([1.45, 1], gap="large")
-
-with left:
-    with st.container(border=True):
-        hero_avatar, hero_info = st.columns([0.95, 2.2], gap="large")
-
-        with hero_avatar:
-            with st.container(key="dp_avatar_block"):
-                avatar_inner = (
-                    f'<img class="dp-avatar-img" src="{escape(profile.get("photo_data_url") or "", quote=True)}" '
-                    f'alt="Doctor profile photo" />'
-                    if str(profile.get("photo_data_url") or "").startswith("data:image")
-                    else f'<div class="dp-avatar">{escape(_initials(doctor_name))}</div>'
-                )
-                st.markdown(
-                    f'<div class="dp-avatar-wrap">{avatar_inner}</div>',
-                    unsafe_allow_html=True,
-                )
-                photo_upload = st.file_uploader(
-                    t("change_photo"),
-                    type=["png", "jpg", "jpeg", "webp"],
-                    key="dp_camera_upload",
-                    label_visibility="collapsed",
-                    accept_multiple_files=False,
-                )
-
-            if photo_upload is not None:
-                digest = hashlib.sha1(photo_upload.getvalue()).hexdigest()
-                if st.session_state.get("dp_last_photo_digest") != digest:
-                    try:
-                        profile["photo_data_url"] = make_circular_avatar_data_url(photo_upload.getvalue())
-                        if save_clinician_profile(username, profile):
-                            log_clinician_activity(username, "Updated profile photo", "Circular avatar saved")
-                            st.session_state.dp_last_photo_digest = digest
-                            st.session_state.dp_photo_success = True
-                            st.rerun()
-                        st.error(t("could_not_save_profile"))
-                    except Exception:
-                        st.error(t("could_not_save_profile"))
-
-            if str(profile.get("photo_data_url") or "").startswith("data:image"):
-                if st.button(t("remove_photo"), key="dp_remove_photo_btn", use_container_width=True):
-                    profile["photo_data_url"] = ""
-                    if save_clinician_profile(username, profile):
-                        log_clinician_activity(username, "Removed profile photo", "Using initials avatar")
-                        st.session_state.dp_last_photo_digest = None
-                        st.session_state.dp_photo_success = True
-                        st.rerun()
-
-        with hero_info:
-            st.markdown(
-                f"""
-                <p class="dp-name">{escape(doctor_name)}</p>
-                <p class="dp-role">{escape(profile.get('title') or t('physician'))}</p>
-                <p class="dp-org">{escape(profile.get('department') or '—')} · {escape(profile.get('hospital_name') or '—')}</p>
-                <div class="dp-details">
-                  <div>
-                    <span class="dp-detail-label">{escape(t('employee_id'))}</span>
-                    <span class="dp-detail-value">{escape(profile.get('employee_id') or '—')}</span>
-                  </div>
-                  <div>
-                    <span class="dp-detail-label">{escape(t('experience'))}</span>
-                    <span class="dp-detail-value">{int(profile.get('years_experience') or 0)} {escape(t('years'))}</span>
-                  </div>
-                  <div>
-                    <span class="dp-detail-label">{escape(t('email'))}</span>
-                    <span class="dp-detail-value">{escape(profile.get('email') or t('not_set'))}</span>
-                  </div>
-                  <div>
-                    <span class="dp-detail-label">{escape(t('phone'))}</span>
-                    <span class="dp-detail-value">{escape(profile.get('phone') or t('not_set'))}</span>
-                  </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
-        if st.button(t("edit_profile"), key="dp_edit_btn", use_container_width=True):
-            st.session_state.dp_edit_mode = not edit_mode
-            st.rerun()
-
-with right:
-    with st.container(border=True):
-        _section_header(t("quick_statistics"), t("quick_statistics_caption"))
-        st.markdown('<div class="dp-stats-grid">', unsafe_allow_html=True)
-        _render_stat(t("stat_patients_today"), stats["patients_seen_today"], "blue")
-        _render_stat(t("stat_total_patients"), stats["total_patients"])
-        _render_stat(t("stat_ai_reports"), stats["ai_reports_reviewed"], "ai")
-        _render_stat(t("stat_upcoming"), stats["upcoming_appointments"], "alert")
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
-        _render_stat(t("stat_high_risk"), stats["high_risk_cases"], "risk")
-
-st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
-
-# ---- Professional information (editable, includes Preferred Language) ----
+edit_mode = bool(st.session_state.get("dp_edit_mode", False))
+form_nonce = int(st.session_state.get("dp_form_nonce", 0))
 lang_codes = [code for code, _ in LANGUAGE_OPTIONS]
 lang_labels = {code: label for code, label in LANGUAGE_OPTIONS}
 
-with st.container(border=True):
-    _section_header(t("professional_information"), t("professional_caption"))
-    c1, c2 = st.columns(2, gap="large")
-    with c1:
-        profile["full_name"] = st.text_input(t("full_name"), profile.get("full_name", ""), key="dp_full_name")
-        profile["title"] = st.text_input(t("professional_title"), profile.get("title", ""), key="dp_title")
-        profile["department"] = st.text_input(t("department"), profile.get("department", ""), key="dp_department")
-        profile["email"] = st.text_input(t("contact_email"), profile.get("email", ""), key="dp_email")
-        profile["phone"] = st.text_input(t("phone_number"), profile.get("phone", ""), key="dp_phone")
-    with c2:
-        profile["years_experience"] = int(
-            st.number_input(
-                t("years_experience"),
-                min_value=0,
-                max_value=60,
-                value=int(profile.get("years_experience") or 0),
-                step=1,
-                key="dp_years_experience",
+# 1) Profile Card ---------------------------------------------------------
+with st.container(border=True, key="dp_profile_card"):
+    hero_avatar, hero_info = st.columns([0.85, 2.4], gap="large")
+
+    with hero_avatar:
+        with st.container(key="dp_avatar_block"):
+            avatar_inner = (
+                f'<img class="dp-avatar-img" src="{escape(profile.get("photo_data_url") or "", quote=True)}" '
+                f'alt="Doctor profile photo" />'
+                if str(profile.get("photo_data_url") or "").startswith("data:image")
+                else f'<div class="dp-avatar">{escape(_initials(doctor_name))}</div>'
             )
+            st.markdown(
+                f'<div class="dp-avatar-wrap">{avatar_inner}</div>',
+                unsafe_allow_html=True,
+            )
+            photo_upload = st.file_uploader(
+                t("change_photo"),
+                type=["png", "jpg", "jpeg", "webp"],
+                key="dp_camera_upload",
+                label_visibility="collapsed",
+                accept_multiple_files=False,
+            )
+
+        if photo_upload is not None:
+            digest = hashlib.sha1(photo_upload.getvalue()).hexdigest()
+            if st.session_state.get("dp_last_photo_digest") != digest:
+                try:
+                    profile["photo_data_url"] = make_circular_avatar_data_url(photo_upload.getvalue())
+                    if save_clinician_profile(username, profile):
+                        log_clinician_activity(username, "Updated profile photo", "Circular avatar saved")
+                        st.session_state.dp_last_photo_digest = digest
+                        st.session_state.dp_photo_success = True
+                        st.rerun()
+                    st.error(t("could_not_save_profile"))
+                except Exception:
+                    st.error(t("could_not_save_profile"))
+
+        if str(profile.get("photo_data_url") or "").startswith("data:image"):
+            if st.button(t("remove_photo"), key="dp_remove_photo_btn", use_container_width=True):
+                profile["photo_data_url"] = ""
+                if save_clinician_profile(username, profile):
+                    log_clinician_activity(username, "Removed profile photo", "Using initials avatar")
+                    st.session_state.dp_last_photo_digest = None
+                    st.session_state.dp_photo_success = True
+                    st.rerun()
+
+    with hero_info:
+        st.markdown(
+            f"""
+            <p class="dp-name">{escape(doctor_name)}</p>
+            <p class="dp-role">{escape(profile.get('title') or t('physician'))}</p>
+            <p class="dp-org">{escape(profile.get('department') or '—')} · {escape(profile.get('hospital_name') or '—')}</p>
+            <div class="dp-details">
+              <div>
+                <span class="dp-detail-label">{escape(t('employee_id'))}</span>
+                <span class="dp-detail-value">{escape(profile.get('employee_id') or '—')}</span>
+              </div>
+              <div>
+                <span class="dp-detail-label">{escape(t('experience'))}</span>
+                <span class="dp-detail-value">{int(profile.get('years_experience') or 0)} {escape(t('years'))}</span>
+              </div>
+              <div>
+                <span class="dp-detail-label">{escape(t('email'))}</span>
+                <span class="dp-detail-value">{escape(profile.get('email') or t('not_set'))}</span>
+              </div>
+              <div>
+                <span class="dp-detail-label">{escape(t('phone'))}</span>
+                <span class="dp-detail-value">{escape(profile.get('phone') or t('not_set'))}</span>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        profile["specialty"] = st.text_input(t("specialty"), profile.get("specialty", ""), key="dp_specialty")
-        profile["languages"] = st.text_input(
-            t("languages_spoken"),
-            profile.get("languages", ""),
-            key="dp_languages_spoken",
-        )
-        current_lang = normalize_language(profile.get("preferred_language"))
-        profile["preferred_language"] = st.selectbox(
-            t("preferred_language"),
-            lang_codes,
-            index=lang_codes.index(current_lang),
-            format_func=lambda code: lang_labels[code],
-            help=t("preferred_language_help"),
-            key="dp_preferred_language",
+        if not edit_mode:
+            st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
+            edit_btn_col, _ = st.columns([1, 2])
+            with edit_btn_col:
+                if st.button(t("edit_profile"), key="dp_edit_btn", use_container_width=True, type="primary"):
+                    st.session_state.dp_edit_mode = True
+                    st.session_state.dp_edit_snapshot = copy.deepcopy(profile)
+                    st.session_state.dp_form_nonce = form_nonce + 1
+                    st.rerun()
+
+# 2) Professional Information (hidden until Edit Profile) -----------------
+if edit_mode:
+    st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
+    with st.container(border=True, key="dp_edit_panel"):
+        _section_header(t("professional_information"), t("professional_caption"))
+        c1, c2 = st.columns(2, gap="large")
+        with c1:
+            profile["full_name"] = st.text_input(
+                t("full_name"),
+                profile.get("full_name", ""),
+                key=f"dp_full_name_{form_nonce}",
+            )
+            profile["title"] = st.text_input(
+                t("professional_title"),
+                profile.get("title", ""),
+                key=f"dp_title_{form_nonce}",
+            )
+            profile["department"] = st.text_input(
+                t("department"),
+                profile.get("department", ""),
+                key=f"dp_department_{form_nonce}",
+            )
+            profile["specialty"] = st.text_input(
+                t("specialty"),
+                profile.get("specialty", ""),
+                key=f"dp_specialty_{form_nonce}",
+            )
+            profile["years_experience"] = int(
+                st.number_input(
+                    t("years_experience"),
+                    min_value=0,
+                    max_value=60,
+                    value=int(profile.get("years_experience") or 0),
+                    step=1,
+                    key=f"dp_years_experience_{form_nonce}",
+                )
+            )
+        with c2:
+            profile["email"] = st.text_input(
+                t("contact_email"),
+                profile.get("email", ""),
+                key=f"dp_email_{form_nonce}",
+            )
+            profile["phone"] = st.text_input(
+                t("phone_number"),
+                profile.get("phone", ""),
+                key=f"dp_phone_{form_nonce}",
+            )
+            current_lang = normalize_language(profile.get("preferred_language"))
+            profile["preferred_language"] = st.selectbox(
+                t("preferred_language"),
+                lang_codes,
+                index=lang_codes.index(current_lang),
+                format_func=lambda code: lang_labels[code],
+                help=t("preferred_language_help"),
+                key=f"dp_preferred_language_{form_nonce}",
+            )
+            profile["languages"] = st.text_input(
+                t("languages_spoken"),
+                profile.get("languages", ""),
+                key=f"dp_languages_spoken_{form_nonce}",
+            )
+
+        profile["biography"] = st.text_area(
+            t("biography"),
+            profile.get("biography", ""),
+            height=110,
+            key=f"dp_biography_{form_nonce}",
         )
 
-    save_col, _ = st.columns([1, 3])
-    with save_col:
-        if st.button(t("save_changes"), type="primary", key="dp_save_btn", use_container_width=True):
-            with st.spinner(t("saving_profile")):
-                ok = save_clinician_profile(username, profile)
-            if ok:
-                log_clinician_activity(username, "Updated professional information", "Profile and language preference saved")
-                st.session_state.clinic_display_name = profile.get("full_name") or account["display_name"]
-                # Persist language on the account; apply after the next page refresh / login.
-                st.session_state.pop("_language_loaded_for", None)
-                st.session_state.dp_save_success = True
+        save_col, cancel_col, _ = st.columns([1, 1, 2])
+        with save_col:
+            if st.button(t("save_changes"), type="primary", key="dp_save_btn", use_container_width=True):
+                with st.spinner(t("saving_profile")):
+                    ok = save_clinician_profile(username, profile)
+                if ok:
+                    log_clinician_activity(
+                        username,
+                        "Updated professional information",
+                        "Profile and language preference saved",
+                    )
+                    st.session_state.clinic_display_name = profile.get("full_name") or account["display_name"]
+                    st.session_state.pop("_language_loaded_for", None)
+                    st.session_state.dp_edit_mode = False
+                    st.session_state.pop("dp_edit_snapshot", None)
+                    st.session_state.dp_save_success = True
+                    st.rerun()
+                else:
+                    st.error(t("could_not_save_profile"))
+        with cancel_col:
+            if st.button(t("cancel"), key="dp_cancel_btn", use_container_width=True):
+                st.session_state.dp_edit_mode = False
+                st.session_state.pop("dp_edit_snapshot", None)
+                st.session_state.dp_form_nonce = form_nonce + 1
                 st.rerun()
-            else:
-                st.error(t("could_not_save_profile"))
 
+# 3) Quick Statistics -----------------------------------------------------
 st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
+with st.container(border=True, key="dp_stats_panel"):
+    _section_header(t("quick_statistics"), t("quick_statistics_caption"))
+    st.markdown('<div class="dp-stats-grid">', unsafe_allow_html=True)
+    _render_stat(t("stat_patients_today"), stats["patients_seen_today"], "blue")
+    _render_stat(t("stat_total_patients"), stats["total_patients"])
+    _render_stat(t("stat_ai_reports"), stats["ai_reports_reviewed"], "ai")
+    _render_stat(t("stat_upcoming"), stats["upcoming_appointments"], "alert")
+    _render_stat(t("stat_high_risk"), stats["high_risk_cases"], "risk")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# ---- Schedule + Recent activity ----
+# 4–5) Today's Schedule + Recent Activity --------------------------------
+st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
 sched_col, act_col = st.columns(2, gap="large")
 
 with sched_col:
-    with st.container(border=True):
+    with st.container(border=True, key="dp_schedule_panel"):
         _section_header(t("todays_schedule"), t("schedule_caption"))
         if not schedule:
             st.info(t("no_upcoming_appointments"))
@@ -669,7 +742,7 @@ with sched_col:
                 )
 
 with act_col:
-    with st.container(border=True):
+    with st.container(border=True, key="dp_activity_panel"):
         _section_header(t("recent_activity"), t("activity_caption"))
         if not activity:
             st.info(t("no_recent_activity"))
@@ -683,83 +756,6 @@ with act_col:
                     f"</div>",
                     unsafe_allow_html=True,
                 )
-
-st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
-
-# ---- Additional account settings (optional) ----
-if st.session_state.get("dp_edit_mode", False):
-    with st.container(border=True):
-        _section_header(t("account_settings"), t("account_settings_caption"))
-
-        e1, e2 = st.columns(2, gap="large")
-        with e1:
-            profile["hospital_name"] = st.text_input(t("hospital_name"), profile.get("hospital_name", ""))
-            profile["certifications"] = st.text_input(t("certifications"), profile.get("certifications", ""))
-            profile["license_number"] = st.text_input(t("medical_license"), profile.get("license_number", ""))
-            profile["education"] = st.text_input(t("education"), profile.get("education", ""))
-        with e2:
-            profile["research_interests"] = st.text_input(
-                t("research_interests"),
-                profile.get("research_interests", ""),
-            )
-            theme_options = ["system", "light", "dark"]
-            theme_labels = {
-                "system": t("theme_system"),
-                "light": "Light",
-                "dark": "Dark",
-            }
-            current_theme = (
-                profile.get("theme_preference")
-                if profile.get("theme_preference") in theme_options
-                else "system"
-            )
-            profile["theme_preference"] = st.selectbox(
-                t("theme_preference"),
-                theme_options,
-                index=theme_options.index(current_theme),
-                format_func=lambda value: theme_labels[value],
-                help=t("theme_future"),
-            )
-
-        profile["biography"] = st.text_area(t("biography"), profile.get("biography", ""), height=110)
-
-        st.markdown(f"**{t('notification_preferences')}**")
-        n1, n2 = st.columns(2)
-        notes = profile.setdefault("notifications", {})
-        with n1:
-            notes["email_alerts"] = st.toggle(t("email_alerts"), value=bool(notes.get("email_alerts", True)))
-            notes["high_risk_alerts"] = st.toggle(
-                t("high_risk_alerts"),
-                value=bool(notes.get("high_risk_alerts", True)),
-            )
-        with n2:
-            notes["appointment_reminders"] = st.toggle(
-                t("appointment_reminders"),
-                value=bool(notes.get("appointment_reminders", True)),
-            )
-            notes["ai_summary_alerts"] = st.toggle(
-                t("ai_summary_alerts"),
-                value=bool(notes.get("ai_summary_alerts", True)),
-            )
-        profile["notifications"] = notes
-
-        save_col, cancel_col, _ = st.columns([1, 1, 2])
-        with save_col:
-            if st.button(t("save_changes"), type="primary", key="dp_save_extra_btn", use_container_width=True):
-                with st.spinner(t("saving_profile")):
-                    ok = save_clinician_profile(username, profile)
-                if ok:
-                    log_clinician_activity(username, "Updated doctor profile", "Account settings saved")
-                    st.session_state.clinic_display_name = profile.get("full_name") or account["display_name"]
-                    st.session_state.dp_edit_mode = False
-                    st.session_state.dp_save_success = True
-                    st.rerun()
-                else:
-                    st.error(t("could_not_save_profile"))
-        with cancel_col:
-            if st.button(t("cancel"), key="dp_cancel_btn", use_container_width=True):
-                st.session_state.dp_edit_mode = False
-                st.rerun()
 
 if st.session_state.pop("dp_photo_success", False):
     toast_text = t("photo_updated")
