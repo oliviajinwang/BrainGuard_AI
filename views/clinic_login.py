@@ -8,7 +8,7 @@ from utils.db import create_clinician, reset_clinician_password, verify_clinicia
 # deployment can't have anyone self-register into the full patient dashboard.
 # Read from st.secrets first (set a private one per deployment), then an env
 # var, then a documented default so local dev still works out of the box.
-_DEFAULT_SIGNUP_CODE = "BRAINGUARD-CLINIC"
+_DEFAULT_SIGNUP_CODE = "6"
 
 
 def _clinic_signup_code() -> str:
