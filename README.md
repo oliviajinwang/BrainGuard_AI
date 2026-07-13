@@ -1,6 +1,8 @@
 # Project.AI
 GCET Dementia Project
 
+**[Try BrainGuard AI here](https://brain-guard-ai.streamlit.app/)**
+
 # Overview
 
 This is BrainGuard AI, a web application that seeks to prevent late stage dementia through a predictive model that can calculate an individual's risk of having dementia and make dementia diagnosis cheap, accessibly, and transparent to individuals with this concern. 
