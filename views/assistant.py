@@ -5,7 +5,6 @@ from utils.db import (
     display_id,
     get_patient,
     patient_has_pin,
-    resolve_patient_id_from_query,
     set_patient_pin,
     verify_patient_pin,
 )
@@ -14,6 +13,17 @@ from utils.patient_conversation import (
     get_patient_conversation,
     now_timestamp,
 )
+
+
+def _resolve_by_patient_id(text: str) -> int | None:
+    """Resolve a Patient ID only (e.g. "P0006" or "6"). Names are
+    deliberately not accepted here -- they're guessable, and the PIN plus an
+    exact ID is the intended gate for opening a patient's conversation."""
+    q = text.strip().upper().removeprefix("P")
+    if not q.isdigit():
+        return None
+    patient_id = int(q)
+    return patient_id if get_patient(patient_id) else None
 
 st.markdown("<div class='bg-section'>My AI Assistant</div>", unsafe_allow_html=True)
 st.write(
@@ -66,25 +76,25 @@ pending_id = st.session_state.assistant_pending_patient_id
 if not patient_id and not pending_id:
     st.markdown("#### Continue as a registered patient")
     st.caption(
-        "Enter the Patient ID shown during registration. Exact names are also "
-        "accepted for this prototype."
+        "Enter the Patient ID shown during registration (e.g. P0006). You'll then "
+        "be asked for this patient's PIN."
     )
 
     sign_col, _ = st.columns([2, 1])
     with sign_col:
         identity = st.text_input(
-            "Patient ID or exact full name",
+            "Patient ID",
             placeholder="e.g. P0006",
             key="assistant_sign_in_query",
         )
 
     if st.button("Continue", type="primary"):
-        resolved = resolve_patient_id_from_query(identity) if identity.strip() else None
+        resolved = _resolve_by_patient_id(identity) if identity.strip() else None
 
         if resolved is None:
             st.error(
-                "No registered patient matched that entry. Register first, then use "
-                "the Patient ID shown after registration."
+                "No registered patient matched that Patient ID. Register first, then "
+                "use the Patient ID shown after registration."
             )
         else:
             row = get_patient(resolved)
