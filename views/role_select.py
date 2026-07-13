@@ -79,6 +79,10 @@ with st.container(key="back_link"):
 
 with st.container(key="options_section"):
     st.markdown("<div class='select-prompt'>Please select how you'd like to continue</div>", unsafe_allow_html=True)
+    st.caption(
+        "BrainGuard AI is a demonstration prototype. Please do not enter real "
+        "personal or protected health information (PHI) in either portal."
+    )
     st.write("")
 
     col1, col2 = st.columns(2)
@@ -96,8 +100,8 @@ with st.container(key="options_section"):
         with st.container(border=True, key="clinic_card"):
             st.markdown("<span class='accent-bar accent-bar-violet'></span>", unsafe_allow_html=True)
             st.subheader("Clinic Staff")
-            st.markdown("<span class='tag tag-yellow'>Full diagnostics</span>", unsafe_allow_html=True)
-            st.write("Access the full patient management and diagnostics dashboard.")
+            st.markdown("<span class='tag tag-yellow'>Clinical assessment tools</span>", unsafe_allow_html=True)
+            st.write("Access patient management and decision-support assessment tools.")
             if st.button("Continue as Clinic Staff", type="primary", width="stretch", key="clinic_cta"):
                 st.session_state.role = "clinic"
                 st.rerun()

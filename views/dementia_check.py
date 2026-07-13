@@ -3,9 +3,16 @@ import streamlit as st
 
 from utils.action_plan import render_lifestyle_action_plan
 from utils.cohort_chart import render_cohort_scatter
+from utils.cohort_ranges import render_structural_input_summary, structural_cohort_ranges
 from utils.db import display_id, fetch_all_patients, update_assessment
-from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, render_risk_gauge, scaled_red_zone_start, threshold_gauge_legend
-from utils.report import RECOMMENDATIONS
+from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, scaled_red_zone_start
+from utils.result_view import (
+    render_lifestyle_gauge_and_recommendation,
+    render_lifestyle_interpretation,
+    render_lifestyle_shap_section,
+    render_lifestyle_validation_performance,
+    render_lifestyle_whatif,
+)
 from utils.shap_chart import render_shap_breakdown
 from src.predict import MODEL_METRICS as CLINICAL_METRICS, predict_patient
 from src.predict_lifestyle import (
@@ -14,8 +21,6 @@ from src.predict_lifestyle import (
     MODEL_METRICS as LIFESTYLE_METRICS,
     predict_lifestyle,
 )
-
-
 
 @st.cache_data
 def _load_structural_cohort() -> pd.DataFrame:
@@ -88,113 +93,23 @@ with tab_lifestyle:
 
     if "lifestyle_result" in st.session_state:
         result = st.session_state["lifestyle_result"]
+        ls_original_inputs = st.session_state["lifestyle_inputs"]
         lifestyle_threshold_pct = LIFESTYLE_THRESHOLD * 100
         lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, LIFESTYLE_MAX_REACHABLE_RISK)
-        st.plotly_chart(
-            render_risk_gauge(
-                result["risk"], "Estimated dementia risk",
-                high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
-            ),
-            width="stretch",
-            theme=None,
+
+        render_lifestyle_gauge_and_recommendation(result, lifestyle_threshold_pct, lifestyle_red_zone_start)
+        render_lifestyle_interpretation(result, audience="clinician")
+
+        render_lifestyle_whatif(
+            result, ls_original_inputs, lifestyle_threshold_pct, lifestyle_red_zone_start,
+            predict_lifestyle, audience="clinician", key_prefix="ls_",
         )
-        st.caption(
-            f"{threshold_gauge_legend(lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start)}  ·  "
-            f"Model prediction: **{result['label']}**"
-        )
-        st.info(RECOMMENDATIONS.get(result["label"], ""))
 
-        st.markdown("---")
-        st.subheader("See what happens if...")
-
-        ls_original_inputs = st.session_state["lifestyle_inputs"]
-        ls_modifiable = []
-        if ls_original_inputs["smoking"]:
-            ls_modifiable.append(("smoking", "Patient quits smoking"))
-        if ls_original_inputs["hypertension"]:
-            ls_modifiable.append(("hypertension", "Blood pressure is controlled"))
-        if ls_original_inputs["high_cholesterol"]:
-            ls_modifiable.append(("high_cholesterol", "Cholesterol is controlled"))
-
-        if not ls_modifiable:
-            st.caption(
-                "None of the quickly modifiable risk factors this simulator covers "
-                "(smoking, blood pressure, cholesterol) are currently flagged."
-            )
-        else:
-            st.caption("Check any of these to see how estimated risk could change.")
-            ls_changes = {}
-            ls_whatif_cols = st.columns(len(ls_modifiable))
-            for ls_whatif_col, (field, checkbox_label) in zip(ls_whatif_cols, ls_modifiable):
-                with ls_whatif_col:
-                    ls_changes[field] = st.checkbox(checkbox_label, key=f"ls_whatif_{field}")
-
-            if any(ls_changes.values()):
-                ls_whatif_inputs = dict(ls_original_inputs)
-                for field, checked in ls_changes.items():
-                    if checked:
-                        ls_whatif_inputs[field] = 0
-                ls_whatif_result = predict_lifestyle(ls_whatif_inputs)
-
-                ls_gauge_col1, ls_gauge_col2 = st.columns(2)
-                with ls_gauge_col1:
-                    st.plotly_chart(
-                        render_risk_gauge(
-                            result["risk"], "Current estimated risk",
-                            high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
-                        ),
-                        width="stretch",
-                        theme=None,
-                    )
-                with ls_gauge_col2:
-                    st.plotly_chart(
-                        render_risk_gauge(
-                            ls_whatif_result["risk"], "If these changes were made",
-                            high_risk_threshold=lifestyle_threshold_pct, red_zone_start=lifestyle_red_zone_start,
-                        ),
-                        width="stretch",
-                        theme=None,
-                    )
-
-                ls_delta = result["risk"] - ls_whatif_result["risk"]
-                if ls_delta > 0.05:
-                    st.success(
-                        f"Estimated risk could drop by **{ls_delta:.1f} percentage points** "
-                        f"(from {result['risk']:.1f}% to {ls_whatif_result['risk']:.1f}%) with "
-                        f"these changes, according to this model."
-                    )
-                elif ls_delta < -0.05:
-                    st.info(
-                        f"According to this model, estimated risk changes from "
-                        f"{result['risk']:.1f}% to {ls_whatif_result['risk']:.1f}% with these "
-                        f"changes."
-                    )
-                else:
-                    st.info("These changes don't meaningfully shift the estimated risk in this model.")
-
-        st.markdown("---")
-        st.subheader("Why did the model make this prediction?")
-        st.plotly_chart(
-            render_shap_breakdown(result["importance"], top_n=5),
-            width="stretch",
-            theme=None,
-        )
-        for _, row in result["importance"].head(5).iterrows():
-            direction = "Increased risk" if row["impact"] > 0 else "Reduced risk"
-            st.write(f"**{row['feature']}** — {direction}\n\n{row['text']}")
+        render_lifestyle_shap_section(result)
 
         render_lifestyle_action_plan(result, ls_original_inputs, predict_lifestyle, key_prefix="ls_")
 
-        st.markdown("---")
-        st.subheader("Model confidence rating")
-        st.write(f"**Model confidence:** {LIFESTYLE_METRICS['roc_auc']}%")
-        st.caption(
-            f"Not this patient's result -- in cross-validated testing this model "
-            f"separates higher- from lower-risk profiles with an AUC of "
-            f"{LIFESTYLE_METRICS['roc_auc']}% (50% = random, 100% = perfect). Raw "
-            f"accuracy isn't shown here -- High Risk cases are rare in the training "
-            f"data, so accuracy alone would be misleading."
-        )
+        render_lifestyle_validation_performance(LIFESTYLE_METRICS, audience="clinician")
 
         if selected_patient_id is not None:
             if st.session_state.get("confirm_save_lifestyle_id") != selected_patient_id:
@@ -252,18 +167,38 @@ with tab_structural:
     with col2:
         st.markdown("### MRI / Clinical Measurements")
 
+        _cohort_ranges = structural_cohort_ranges()
+
+        def _range_note(field: str, unit: str = "") -> str:
+            low, high = _cohort_ranges[field]
+            unit_suffix = f" {unit}" if unit else ""
+            return (
+                f"Training-cohort range in this model's data: {low:g}–{high:g}"
+                f"{unit_suffix} -- not a universal healthy or clinical range."
+            )
+
         cl_mmse = st.slider(
             "MMSE Score",
             0,
             30,
-            27
+            27,
+            help=(
+                "Mini-Mental State Examination score (points, 0-30). A brief cognitive "
+                "screening test normally administered in person by a clinician. "
+                + _range_note("mmse_score", "points")
+            ),
         )
 
         cl_etiv = st.number_input(
             "Estimated Intracranial Volume (eTIV)",
             1000.0,
             2000.0,
-            1450.0
+            1450.0,
+            help=(
+                "Estimated Total Intracranial Volume (cm3), derived from a structural "
+                "MRI scan by neuroimaging analysis software rather than measured "
+                "directly. " + _range_note("estimated_intracranial_volume", "cm3")
+            ),
         )
 
         cl_nwbv = st.number_input(
@@ -271,16 +206,26 @@ with tab_structural:
             0.5,
             0.9,
             0.72,
-            help="Brain volume as a fraction of total intracranial volume, adjusted for "
-            "head size. Lower values mean more brain tissue loss (atrophy), which tends "
-            "to increase with age and neurodegeneration.",
+            help=(
+                "Brain volume as a fraction of total intracranial volume (unitless "
+                "ratio, 0-1), adjusted for head size and derived from MRI segmentation "
+                "software. Lower values mean more brain tissue loss (atrophy), which "
+                "tends to increase with age and neurodegeneration. "
+                + _range_note("normalized_whole_brain_volume")
+            ),
         )
 
         cl_asf = st.number_input(
             "Atlas Scaling Factor (ASF)",
             0.5,
             2.0,
-            1.10
+            1.10,
+            help=(
+                "Atlas Scaling Factor (unitless), a scaling constant computed during "
+                "MRI processing to align a scan with a standard brain atlas template "
+                "-- a technical imaging value, not measured directly from the patient. "
+                + _range_note("atlas_scaling_factor")
+            ),
         )
 
     if st.button(
@@ -311,6 +256,7 @@ with tab_structural:
         }
 
         st.session_state["clinical_result"] = result
+        st.session_state["clinical_inputs"] = patient
 
     if "clinical_result" in st.session_state:
 
@@ -334,7 +280,7 @@ with tab_structural:
 
             <hr>
 
-            <h3>Estimated dementia risk</h3>
+            <h3>Estimated dementia-related probability</h3>
 
             <h1>{result['risk']:.1f}%</h1>
 
@@ -355,7 +301,7 @@ with tab_structural:
         st.plotly_chart(
             render_class_gauge(
                 result["risk"],
-                "Estimated probability of dementia",
+                "Estimated dementia-related probability",
                 color,
             ),
             width="stretch",
@@ -367,18 +313,30 @@ with tab_structural:
             f"""
         **How should this be interpreted?**
 
-        • Estimated dementia probability: **{result['risk']:.1f}%**
+        • Estimated dementia-related probability: **{result['risk']:.1f}%**
 
         • Predicted class: **{result['label']}**
 
         The probability represents the model's estimate based on patients
-        with similar clinical characteristics in the training data.
-        It is **not** a medical diagnosis.
+        with similar clinical characteristics in the training data. It reflects
+        statistical association, not proven cause, and it is **not** a medical
+        diagnosis. A low estimate does not rule out dementia, and a high
+        estimate does not mean this patient has or will develop dementia.
         """
         )
 
+        if "clinical_inputs" in st.session_state:
+            st.divider()
+            st.subheader("Inputs analyzed")
+            render_structural_input_summary(st.session_state["clinical_inputs"])
+
         # SHAP explanation
         st.subheader("Factors influencing this prediction")
+        st.caption(
+            "These show which inputs shifted the model's estimate and by how much "
+            "-- statistical associations learned from training data, not proven "
+            "causes."
+        )
 
         top = (
             result["importance"]
@@ -446,8 +404,8 @@ with tab_structural:
         )
 
         st.markdown("---")
-        st.subheader("Model confidence rating")
-        st.write(f"**Model confidence:** {CLINICAL_METRICS['accuracy']}%")
+        st.subheader("Validation performance")
+        st.write(f"**Cross-validated accuracy:** {CLINICAL_METRICS['accuracy']}%")
         st.caption(
             f"Not this patient's result -- in cross-validated testing that keeps "
             f"each patient's repeat visits entirely on one side of the split, this "

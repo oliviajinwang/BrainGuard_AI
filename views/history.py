@@ -92,7 +92,7 @@ else:
             "age": "Age",
             "assessment_type": "Assessment Type",
             "prediction_label": "Prediction",
-            "confidence": "Confidence",
+            "confidence": "Prediction Probability",
             "registration_date": "Registered",
         }
     )

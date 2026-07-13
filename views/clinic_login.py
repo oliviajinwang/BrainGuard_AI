@@ -3,6 +3,12 @@ import streamlit as st
 from utils.db import create_clinician, reset_clinician_password, verify_clinician
 
 st.markdown("<div class='bg-section'>Clinic Access</div>", unsafe_allow_html=True)
+st.warning(
+    "**Demonstration access only.** This clinic portal is a prototype, not a "
+    "production clinical system. Do not enter real patient names, contact "
+    "details, or other protected health information (PHI) anywhere in this "
+    "portal -- use fictitious or test data only."
+)
 
 tab_login, tab_register, tab_reset = st.tabs(["Log In", "Create Account", "Reset Password"])
 

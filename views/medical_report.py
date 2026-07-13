@@ -23,7 +23,7 @@ else:
         st.metric("Name", patient["full_name"])
     with col2:
         st.metric("Prediction", patient["prediction_label"] or "Not yet assessed")
-        st.metric("Confidence", f"{patient['confidence']:.1f}%" if patient["confidence"] is not None else "-")
+        st.metric("Prediction Probability", f"{patient['confidence']:.1f}%" if patient["confidence"] is not None else "-")
 
     if patient["prediction_label"] is None:
         st.warning("This patient has no saved assessment yet. Run a Dementia Check and save the result first.")

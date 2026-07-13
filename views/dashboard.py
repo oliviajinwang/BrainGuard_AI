@@ -100,7 +100,7 @@ with c5:
 with c6:
     st.metric("Average Age", average_age)
 with c7:
-    st.metric("Avg Confidence", f"{average_confidence}%")
+    st.metric("Avg Prediction Probability", f"{average_confidence}%")
 
 st.markdown("---")
 
@@ -161,7 +161,7 @@ else:
     recent["Patient ID"] = recent["id"].apply(display_id)
     display_df = recent[["Patient ID", "full_name", "gender", "age", "prediction_label", "confidence"]].rename(
         columns={"full_name": "Name", "gender": "Gender", "age": "Age",
-                 "prediction_label": "Prediction", "confidence": "Confidence"}
+                 "prediction_label": "Prediction", "confidence": "Prediction Probability"}
     )
     st.dataframe(display_df.head(10), width="stretch", hide_index=True)
 

@@ -31,9 +31,10 @@ FAQ_RULES: list[tuple[list[str], str]] = [
             "does he have dementia",
             "am i going to get dementia",
         ],
-        "No. BrainGuard AI is a screening and educational tool, not a diagnosis. "
-        "It cannot examine anyone or determine whether a person has dementia. "
-        "Please discuss personal symptoms or concerns with a licensed physician.",
+        "No. BrainGuard AI is an educational and clinical decision-support "
+        "prototype, not a diagnosis. It cannot examine anyone or determine "
+        "whether a person has dementia. Please discuss personal symptoms or "
+        "concerns with a licensed physician.",
     ),
     (
         ["what does high risk mean", "what is high risk", "high risk result"],
@@ -45,8 +46,8 @@ FAQ_RULES: list[tuple[list[str], str]] = [
     (
         ["what does low risk mean", "what is low risk", "low risk result"],
         'A "Low Risk" result means the screening did not flag elevated risk from the '
-        "entered factors. It is not a guarantee, and new or worsening symptoms should "
-        "still be discussed with a physician.",
+        "entered factors. It does not rule out dementia and is not a guarantee -- new "
+        "or worsening symptoms should still be discussed with a physician.",
     ),
     (
         [
@@ -157,14 +158,18 @@ FAQ_RULES: list[tuple[list[str], str]] = [
     ),
     (
         ["who made this", "about this app", "what is brainguard"],
-        "BrainGuard AI is an explainable machine-learning prototype for exploring "
-        "patterns associated with dementia risk. It is not a certified medical device.",
+        "BrainGuard AI is an educational and clinical decision-support prototype for "
+        "exploring patterns associated with dementia risk. It is not a diagnosis, a "
+        "certified medical device, or a substitute for professional medical "
+        "evaluation.",
     ),
 ]
 
 SYSTEM_PROMPT = """
-You are the BrainGuard AI Assistant inside an educational dementia-risk screening
-prototype used by patients and family members.
+You are the BrainGuard AI Assistant inside BrainGuard AI, an educational and
+clinical decision-support prototype used by patients and family members to
+explore dementia-related risk factors. It is not a diagnosis, a medical
+device, or a substitute for professional medical evaluation.
 
 You may:
 - explain how BrainGuard AI works;
@@ -178,7 +183,12 @@ Safety and scope rules:
 - When a user asks about a real person's symptoms, acknowledge the concern briefly and
   direct them to a licensed physician or primary-care clinician for an evaluation.
 - For sudden or severe symptoms, advise contacting local emergency services.
-- Never claim that an app result confirms or rules out dementia.
+- Never claim that an app result confirms or rules out dementia. A Low Risk (or
+  Nondemented) result does not rule out dementia, and a High Risk (or Demented)
+  result does not mean the person has or will develop dementia -- say so when
+  relevant.
+- Do not claim that a factor identified by the model causes dementia -- these are
+  statistical associations learned from training data, not proven causes.
 - Do not contradict the application's displayed result.
 - Do not ask for additional sensitive medical details.
 - Stay within dementia education, brain health, and use of this application.
