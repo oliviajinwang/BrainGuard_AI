@@ -25,6 +25,7 @@ def render_lifestyle_gauge_and_recommendation(
     result: dict,
     threshold_pct: float,
     red_zone_start: float,
+    axis_max: float = 100.0,
 ) -> None:
     """Render the primary lifestyle risk gauge, its threshold-zone legend
     caption, and the label-specific recommendation box.
@@ -35,6 +36,7 @@ def render_lifestyle_gauge_and_recommendation(
         render_risk_gauge(
             result["risk"], "Estimated dementia-related probability",
             high_risk_threshold=threshold_pct, red_zone_start=red_zone_start,
+            axis_max=axis_max,
         ),
         width="stretch",
         theme=None,
@@ -69,10 +71,10 @@ def render_lifestyle_interpretation(result: dict, *, audience: Audience) -> None
         else:
             st.success(
                 "**What this means:** based on the factors entered, this screening did "
-                "not flag elevated risk. **This does not rule out dementia** — this tool "
-                "has no access to MRI scans or cognitive test results, and regular "
-                "checkups remain the best way to catch changes early, especially as risk "
-                "factors like age change over time."
+                "not flag elevated risk — a reassuring sign. Keep in mind it only looks "
+                "at lifestyle factors, not MRI scans or cognitive tests, so routine "
+                "checkups remain the best way to stay ahead of any changes over time, "
+                "especially as risk factors like age shift."
             )
         st.caption(
             "This estimate comes from a machine-learning model trained on a limited "
@@ -137,6 +139,7 @@ def render_lifestyle_whatif(
     *,
     audience: Audience,
     key_prefix: str = "",
+    axis_max: float = 100.0,
 ) -> None:
     """Render the lifestyle "See what happens if..." what-if simulator.
 
@@ -186,6 +189,7 @@ def render_lifestyle_whatif(
             render_risk_gauge(
                 result["risk"], "Current estimated probability",
                 high_risk_threshold=threshold_pct, red_zone_start=red_zone_start,
+                axis_max=axis_max,
             ),
             width="stretch",
             theme=None,
@@ -195,6 +199,7 @@ def render_lifestyle_whatif(
             render_risk_gauge(
                 whatif_result["risk"], copy["whatif_gauge_title"],
                 high_risk_threshold=threshold_pct, red_zone_start=red_zone_start,
+                axis_max=axis_max,
             ),
             width="stretch",
             theme=None,

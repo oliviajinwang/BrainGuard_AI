@@ -17,7 +17,7 @@ def _pdf_safe(value) -> str:
     return unidecode(str(value))
 
 RECOMMENDATIONS = {
-    "Low Risk": "Continue healthy lifestyle habits and schedule routine annual check-ups. This result does not rule out dementia.",
+    "Low Risk": "Continue healthy lifestyle habits and schedule routine annual check-ups. This is a lifestyle-based screening, so keeping up regular check-ups is still the best way to stay ahead of any changes.",
     "High Risk": "Discuss modifiable risk factors with a physician and consider a full cognitive workup. This result does not mean the person has or will develop dementia.",
     "Nondemented": "This screening did not flag signs of cognitive decline. Continue routine monitoring; this result does not rule out dementia.",
     "Demented": "This screening's findings are consistent with the Demented classification, not a diagnosis. Refer to a neurologist for a full diagnostic workup.",

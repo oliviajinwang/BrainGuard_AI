@@ -38,6 +38,7 @@ def render_risk_gauge(
     subtitle: str,
     high_risk_threshold: float,
     red_zone_start: float | None = None,
+    axis_max: float = 100.0,
 ) -> go.Figure:
     """Gauge for models with a single binary decision threshold (lifestyle,
     cognitive). Zone boundaries are pinned to that model's own
@@ -51,8 +52,15 @@ def render_risk_gauge(
     scaled_red_zone_start) -- pass it for models whose reachable ceiling is
     well under 100%, so red stays a genuinely reachable zone rather than a
     band nothing ever renders in.
+
+    axis_max caps the dial's top. On a full 0-100 axis, a model that can
+    only reach ~30% paints ~70% of the arc red, so even a genuinely low
+    result looks alarming. Passing a cap near the model's reachable ceiling
+    makes the green/yellow/red bands proportionate to what the model can
+    actually output, so a low result reads as mostly green.
     """
     midpoint = red_zone_start if red_zone_start is not None else _high_risk_midpoint(high_risk_threshold)
+    top = max(axis_max, risk_percent, midpoint)
     fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
@@ -60,12 +68,12 @@ def render_risk_gauge(
             number={"suffix": "%", "font": {"color": _INK}},
             title={"text": subtitle, "font": {"color": _INK}},
             gauge={
-                "axis": {"range": [0, 100], "tickcolor": _INK, "tickfont": {"color": _INK}},
+                "axis": {"range": [0, top], "tickcolor": _INK, "tickfont": {"color": _INK}},
                 "bar": {"color": _BAR},
                 "steps": [
                     {"range": [0, high_risk_threshold], "color": _GREEN},
                     {"range": [high_risk_threshold, midpoint], "color": _YELLOW},
-                    {"range": [midpoint, 100], "color": _RED},
+                    {"range": [midpoint, top], "color": _RED},
                 ],
             },
         )

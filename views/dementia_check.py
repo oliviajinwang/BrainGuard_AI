@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import streamlit as st
 
@@ -96,13 +98,16 @@ with tab_lifestyle:
         ls_original_inputs = st.session_state["lifestyle_inputs"]
         lifestyle_threshold_pct = LIFESTYLE_THRESHOLD * 100
         lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, LIFESTYLE_MAX_REACHABLE_RISK)
+        lifestyle_axis_max = min(100.0, math.ceil(LIFESTYLE_MAX_REACHABLE_RISK / 5) * 5)
 
-        render_lifestyle_gauge_and_recommendation(result, lifestyle_threshold_pct, lifestyle_red_zone_start)
+        render_lifestyle_gauge_and_recommendation(
+            result, lifestyle_threshold_pct, lifestyle_red_zone_start, axis_max=lifestyle_axis_max
+        )
         render_lifestyle_interpretation(result, audience="clinician")
 
         render_lifestyle_whatif(
             result, ls_original_inputs, lifestyle_threshold_pct, lifestyle_red_zone_start,
-            predict_lifestyle, audience="clinician", key_prefix="ls_",
+            predict_lifestyle, audience="clinician", key_prefix="ls_", axis_max=lifestyle_axis_max,
         )
 
         render_lifestyle_shap_section(result)

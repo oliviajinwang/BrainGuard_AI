@@ -1,3 +1,5 @@
+import math
+
 import streamlit as st
 
 from utils.action_plan import render_lifestyle_action_plan
@@ -44,13 +46,19 @@ if "patient_result" in st.session_state:
     original_inputs = st.session_state["patient_inputs"]
     lifestyle_threshold_pct = DECISION_THRESHOLD * 100
     lifestyle_red_zone_start = scaled_red_zone_start(lifestyle_threshold_pct, MAX_REACHABLE_RISK)
+    # Cap the gauge dial near the model's reachable ceiling (rounded up to a
+    # clean 5%) so a low result reads as mostly green instead of sitting in a
+    # thin sliver under a mostly-red 0-100 dial.
+    lifestyle_axis_max = min(100.0, math.ceil(MAX_REACHABLE_RISK / 5) * 5)
 
-    render_lifestyle_gauge_and_recommendation(result, lifestyle_threshold_pct, lifestyle_red_zone_start)
+    render_lifestyle_gauge_and_recommendation(
+        result, lifestyle_threshold_pct, lifestyle_red_zone_start, axis_max=lifestyle_axis_max
+    )
     render_lifestyle_interpretation(result, audience="patient")
 
     render_lifestyle_whatif(
         result, original_inputs, lifestyle_threshold_pct, lifestyle_red_zone_start,
-        predict_lifestyle, audience="patient",
+        predict_lifestyle, audience="patient", axis_max=lifestyle_axis_max,
     )
 
     render_lifestyle_shap_section(result)
