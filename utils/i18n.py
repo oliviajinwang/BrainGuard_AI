@@ -449,7 +449,7 @@ _STRINGS: dict[str, dict[str, str]] = {
         "col_patient_id": "Patient ID",
         "col_name": "Name",
         "col_prediction": "Prediction",
-        "col_confidence": "Confidence",
+        "col_confidence": "Prediction Probability",
         "not_yet_assessed": "Not yet assessed",
         "no_assessment_yet": "This patient has no saved assessment yet. Run a Dementia Check and save the result first.",
         "download_pdf": "Download PDF Report",

@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import streamlit as st
 
 from utils.db import display_id, get_patient
+from utils.i18n import t
 from utils.patient_conversation import (
     ensure_conversation_seeded,
     filter_messages,
@@ -31,14 +32,11 @@ _CHAT_CSS = """
 
 
 st.markdown(_CHAT_CSS, unsafe_allow_html=True)
-st.markdown("<div class='bg-section'>Patient AI Conversation</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='bg-section'>{t('ai_conversation')}</div>", unsafe_allow_html=True)
 
 if not st.session_state.get("selected_patient_id"):
-    st.info(
-        "Select a registered patient from **Patient History** to review their "
-        "personal AI conversation. Histories are stored by Patient ID and never shared."
-    )
-    if st.button("Go to Patient History", type="primary"):
+    st.info(t("ai_select_patient"))
+    if st.button(t("go_to_history"), type="primary"):
         st.switch_page("views/history.py")
     st.stop()
 
@@ -48,7 +46,7 @@ if not patient_row:
     st.session_state.selected_patient_id = None
     st.session_state.selected_patient = None
     st.warning("That patient record could not be found. Please select another patient.")
-    if st.button("Go to Patient History", type="primary", key="missing_patient_history"):
+    if st.button(t("go_to_history"), type="primary", key="missing_patient_history"):
         st.switch_page("views/history.py")
     st.stop()
 

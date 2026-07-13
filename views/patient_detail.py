@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.db import get_assessment_history
+from utils.i18n import t
 from utils.risk_profile import render_shared_risk_profile_fields
 from utils.patient_record import ensure_patient_record, parse_iso_date, save_patient_record_session
 
@@ -57,7 +58,7 @@ def _card(title: str):
 
 def _render_overview_sidebar(record: dict) -> None:
     overview = record["overview"]
-    with _card("Patient Overview"):
+    with _card(t("patient_overview")):
         overview["name"] = st.text_input("Name", overview["name"])
         overview["patient_id"] = st.text_input("Patient ID", overview["patient_id"])
         overview["assessment_type"] = st.text_input("Assessment Type", overview["assessment_type"])
@@ -82,7 +83,7 @@ def _render_overview_sidebar(record: dict) -> None:
 
 
 def _render_risk_trend(patient_db_id: int) -> None:
-    with _card("Risk Trend"):
+    with _card(t("risk_trend")):
         history = get_assessment_history(patient_db_id)
         history = history[history["risk_percent"].notna()]
         if history.empty:
@@ -281,7 +282,7 @@ def _appointment_dates(record: dict) -> list[date]:
 
 
 def _render_calendar_sidebar(record: dict) -> None:
-    with _card("Interactive Calendar"):
+    with _card(t("interactive_calendar")):
         appointment_dates = _appointment_dates(record)
         st.caption("Select a date to review, add, or edit appointments.")
         selected_date = st.date_input(
@@ -348,7 +349,7 @@ def _render_appointment_editor(record: dict, index: int, appointment: dict, expa
 
 
 def _render_upcoming_sidebar(record: dict) -> None:
-    with _card("Upcoming Appointments & Reminders"):
+    with _card(t("upcoming_appointments_reminders")):
         upcoming = sorted(record["appointments"], key=lambda item: (item["date"], item["time"]))
         st.caption("Edit, delete, or update scheduled follow-up visits.")
         for appointment in upcoming:
@@ -372,12 +373,12 @@ st.markdown(_EHR_CSS, unsafe_allow_html=True)
 if not st.session_state.get("selected_patient_id"):
     st.switch_page("views/history.py")
 
-st.markdown("<div class='bg-section'>Patient Detail</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='bg-section'>{t('patient_detail')}</div>", unsafe_allow_html=True)
 
 record = ensure_patient_record()
 overview = record["overview"]
 
-if st.button("Back to Patient History"):
+if st.button(t("back_to_history")):
     st.session_state.history_last_selection = overview["name"].lower()
     st.session_state.selected_patient = None
     st.session_state.selected_patient_id = None
@@ -388,11 +389,11 @@ with header_left:
     st.markdown(f"## {overview['name']}")
     st.caption(f"Patient ID {overview['patient_id']} · Registered {overview['registration_date']}")
 with header_right:
-    st.metric("Dementia Risk", overview.get("prediction_label") or "Pending")
+    st.metric(t("dementia_risk"), overview.get("prediction_label") or t("risk_pending"))
     confidence = overview.get("confidence") or 0.0
-    st.metric("Prediction Probability", f"{confidence:.0f}%" if confidence else "—")
+    st.metric(t("col_confidence"), f"{confidence:.0f}%" if confidence else "—")
 
-if st.button("Open Patient AI Conversation", type="secondary"):
+if st.button(t("open_ai_conversation"), type="secondary"):
     st.switch_page("views/patient_ai_conversation.py")
 
 left_col, main_col, right_col = st.columns([1.05, 2.1, 1.05], gap="medium")
@@ -419,7 +420,7 @@ with right_col:
 st.markdown("---")
 save_col, _ = st.columns([1, 3])
 with save_col:
-    if st.button("Save Changes", type="primary", use_container_width=True):
+    if st.button(t("save_changes"), type="primary", use_container_width=True):
         save_patient_record_session(record)
         st.session_state.patient_save_success = True
         saved_at = datetime.now().strftime("%Y-%m-%d %H:%M")
