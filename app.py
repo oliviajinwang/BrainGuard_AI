@@ -4,6 +4,7 @@ import time
 import streamlit as st
 
 import utils.db as _db
+import utils.i18n as _i18n
 
 # Long-lived Streamlit servers can keep a stale utils.db in sys.modules after
 # git pulls. Reload when clinician auth helpers are missing so clinic login
@@ -11,8 +12,17 @@ import utils.db as _db
 if not hasattr(_db, "create_clinician"):
     _db = importlib.reload(_db)
 
-from utils.db import get_clinician_profile, init_db  # stores patient data(patient history)
-from utils.i18n import apply_clinician_language, t
+# Same for i18n when patient-language helpers were added after the server started.
+if not hasattr(_i18n, "PATIENT_LANGUAGE_OPTIONS"):
+    _i18n = importlib.reload(_i18n)
+
+from utils.db import get_clinician_profile, init_db, load_patient_record  # stores patient data(patient history)
+from utils.i18n import (
+    PATIENT_LANGUAGE_OPTIONS,
+    apply_clinician_language,
+    apply_patient_language,
+    t,
+)
 from utils.layout import hide_sidebar, inject_css  #colors/design
 
 st.set_page_config(
@@ -74,7 +84,9 @@ if st.session_state._switching == "commit":
     st.session_state.clinic_clinician_id = None
     st.session_state.dp_edit_mode = False
     st.session_state.ui_language = "en"
+    st.session_state.pop("preferred_language", None)
     st.session_state.pop("_language_loaded_for", None)
+    st.session_state.pop("_patient_language_loaded_for", None)
     st.session_state.selected_patient = None
     st.session_state.selected_patient_id = None
     st.session_state.selected_patient_record = None
@@ -83,6 +95,9 @@ if st.session_state._switching == "commit":
     st.session_state.assistant_messages = []
     st.session_state.assistant_patient_id = None
     st.session_state.assistant_pending_patient_id = None
+    st.session_state.patient_portal_id = None
+    st.session_state.patient_portal_pending_id = None
+    st.session_state.pp_edit_mode = False
     st.session_state.history_last_selection = None
     st.session_state.reload_patient_record = True
     st.session_state._switching = None
@@ -104,16 +119,39 @@ if st.session_state.role is None:
         nav.run()
 
 elif st.session_state.role == "patient":
-    st.sidebar.markdown("### Patient Portal")
+    # Keep portal chrome in the signed-in patient's saved preferred language.
+    signed_in_patient_id = st.session_state.get("patient_portal_id") or st.session_state.get(
+        "assistant_patient_id"
+    )
+    if signed_in_patient_id and st.session_state.get("_patient_language_loaded_for") != signed_in_patient_id:
+        try:
+            portal_lang = (
+                load_patient_record(int(signed_in_patient_id))
+                .get("portal_profile", {})
+                .get("preferred_language")
+            )
+            apply_patient_language(portal_lang)
+        except Exception:
+            apply_patient_language("English")
+        st.session_state._patient_language_loaded_for = signed_in_patient_id
+    elif st.session_state.get("preferred_language") not in PATIENT_LANGUAGE_OPTIONS:
+        apply_patient_language("English")
+
+    st.sidebar.markdown(f"### {t('patient_portal')}")
     st.sidebar.markdown("---")
 
     pages = [
-        st.Page("views/patient_check.py", title="Quick Risk Check", default=True),
-        st.Page("views/register_patient.py", title="Register Patient"),
-        st.Page("views/assistant.py", title="My AI Assistant"),
+        st.Page("views/patient_check.py", title=t("nav_quick_risk_check"), default=True),
+        st.Page("views/register_patient.py", title=t("nav_register_patient")),
+        st.Page("views/assistant.py", title=t("nav_my_ai_assistant")),
+        st.Page(
+            "views/patient_profile.py",
+            title=t("nav_my_profile"),
+            icon=":material/account_circle:",
+        ),
     ]
     nav = st.navigation(pages)
-    st.button("Switch Role", on_click=_start_switch_role, key="switch_role_btn")
+    st.button(t("switch_role"), on_click=_start_switch_role, key="switch_role_btn")
     nav.run()
 
 elif st.session_state.role == "clinic":

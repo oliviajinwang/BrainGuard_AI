@@ -2,6 +2,20 @@ from datetime import date
 from typing import Any
 
 
+def default_portal_profile() -> dict[str, Any]:
+    """Patient-portal profile extras (photo, DOB, language, emergency contact)."""
+    return {
+        "photo_data_url": "",
+        "date_of_birth": "",
+        "preferred_language": "English",
+        "primary_doctor": "",
+        "emergency_name": "",
+        "emergency_relationship": "",
+        "emergency_phone": "",
+        "emergency_email": "",
+    }
+
+
 def default_clinical_sections() -> dict[str, Any]:
     return {
         "medical_history": [],
@@ -24,6 +38,8 @@ def default_clinical_sections() -> dict[str, Any]:
         "follow_up_plans": [],
         # Patient↔AI chat turns, persisted per patient ID for clinic review.
         "ai_conversation": [],
+        # Patient-portal profile extras (photo, DOB, structured emergency contact).
+        "portal_profile": default_portal_profile(),
     }
 
 
@@ -57,6 +73,7 @@ def build_patient_record_from_row(row: dict[str, Any]) -> dict[str, Any]:
         "risk_profile": risk_profile,
         "contact": contact,
         **clinical,
+        "portal_profile": default_portal_profile(),
         "patient_db_id": int(row["id"]),
     }
 

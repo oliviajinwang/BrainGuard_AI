@@ -456,14 +456,12 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
 }
 .st-key-dp_save_btn button,
 .st-key-dp_edit_btn button,
-.st-key-dp_cancel_btn button,
-.st-key-dp_remove_photo_btn button {
+.st-key-dp_cancel_btn button {
     transition: transform 0.25s ease, box-shadow 0.25s ease !important;
 }
 .st-key-dp_save_btn button:hover,
 .st-key-dp_edit_btn button:hover,
-.st-key-dp_cancel_btn button:hover,
-.st-key-dp_remove_photo_btn button:hover {
+.st-key-dp_cancel_btn button:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 18px rgba(20, 40, 65, 0.16);
 }
@@ -587,15 +585,6 @@ with st.container(border=True, key="dp_profile_card"):
                     st.error(t("could_not_save_profile"))
                 except Exception:
                     st.error(t("could_not_save_profile"))
-
-        if str(profile.get("photo_data_url") or "").startswith("data:image"):
-            if st.button(t("remove_photo"), key="dp_remove_photo_btn", use_container_width=True):
-                profile["photo_data_url"] = ""
-                if save_clinician_profile(username, profile):
-                    log_clinician_activity(username, "Removed profile photo", "Using initials avatar")
-                    st.session_state.dp_last_photo_digest = None
-                    st.session_state.dp_photo_success = True
-                    st.rerun()
 
     with hero_info:
         biography = str(profile.get("biography") or "").strip()

@@ -584,11 +584,14 @@ def get_patient(patient_id: int) -> dict | None:
 
 
 def _apply_row_to_record(row: dict[str, Any], record: dict[str, Any]) -> dict[str, Any]:
-    from utils.patient_record import default_clinical_sections
+    from utils.patient_record import default_clinical_sections, default_portal_profile
 
     overview = record.setdefault("overview", {})
     risk = record.setdefault("risk_profile", {})
     contact = record.setdefault("contact", {})
+    portal = record.setdefault("portal_profile", default_portal_profile())
+    for key, value in default_portal_profile().items():
+        portal.setdefault(key, value)
 
     overview["name"] = row.get("full_name") or overview.get("name", "")
     overview["gender"] = row.get("gender") or overview.get("gender", "")
@@ -635,11 +638,24 @@ def load_patient_record(patient_id: int) -> dict[str, Any]:
 def save_patient_record(patient_id: int, record: dict[str, Any], modified_by: str | None = None) -> None:
     overview = record["overview"]
     risk = record["risk_profile"]
+    contact = record.setdefault("contact", {})
+    portal = record.setdefault("portal_profile", {})
+
+    # Keep the legacy free-text emergency field in sync with structured portal fields.
+    emergency_bits = [
+        str(portal.get("emergency_name") or "").strip(),
+        str(portal.get("emergency_relationship") or "").strip(),
+        str(portal.get("emergency_phone") or "").strip(),
+    ]
+    structured_emergency = " · ".join(part for part in emergency_bits if part)
+    if structured_emergency:
+        contact["emergency_contact"] = structured_emergency
 
     conn = get_connection()
     conn.execute(
         """UPDATE patients SET
-           full_name = ?, gender = ?, age = ?, assessment_type = ?,
+           full_name = ?, gender = ?, age = ?, phone = ?, email = ?, address = ?,
+           emergency_contact = ?, assessment_type = ?,
            prediction_label = ?, confidence = ?, registration_date = ?,
            education_years = ?, diabetes = ?, hypertension = ?,
            high_cholesterol = ?, smoking = ?, extended_record = ?,
@@ -649,6 +665,10 @@ def save_patient_record(patient_id: int, record: dict[str, Any], modified_by: st
             overview["name"],
             overview["gender"],
             int(overview["age"]),
+            contact.get("phone") or "",
+            contact.get("email") or "",
+            contact.get("address") or "",
+            contact.get("emergency_contact") or "",
             overview.get("assessment_type") or None,
             overview.get("prediction_label") or None,
             float(overview.get("confidence") or 0.0),

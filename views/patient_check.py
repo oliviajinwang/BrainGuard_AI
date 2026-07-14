@@ -4,6 +4,7 @@ import streamlit as st
 
 from utils.action_plan import render_lifestyle_action_plan
 from utils.gauge import scaled_red_zone_start
+from utils.i18n import t
 from utils.result_view import (
     render_lifestyle_gauge_and_recommendation,
     render_lifestyle_interpretation,
@@ -13,22 +14,26 @@ from utils.result_view import (
 )
 from src.predict_lifestyle import DECISION_THRESHOLD, MAX_REACHABLE_RISK, MODEL_METRICS, predict_lifestyle
 
-st.markdown("<div class='bg-section'>Dementia Risk Check</div>", unsafe_allow_html=True)
-st.write("Answer a few questions about your lifestyle to see your estimated dementia risk.")
-st.caption("AI-assisted estimate based on lifestyle and health history — not a diagnosis.")
+st.markdown(f"<div class='bg-section'>{t('dementia_risk_check')}</div>", unsafe_allow_html=True)
+st.write(t("risk_check_intro"))
+st.caption(t("risk_check_caption"))
 
 col1, col2 = st.columns(2)
 with col1:
-    age = st.slider("Age", 40, 90, 60)
-    gender = st.selectbox("Gender", ["Female", "Male"])
-    education_years = st.slider("Years of Education", 0, 25, 12)
+    age = st.slider(t("age"), 40, 90, 60)
+    gender = st.selectbox(
+        t("gender"),
+        ["Female", "Male"],
+        format_func=lambda g: t("female") if g == "Female" else t("male"),
+    )
+    education_years = st.slider(t("years_of_education"), 0, 25, 12)
 with col2:
-    diabetes = st.toggle("Diabetes")
-    hypertension = st.toggle("Hypertension")
-    high_cholesterol = st.toggle("High Cholesterol")
-    smoking = st.toggle("Smoking")
+    diabetes = st.toggle(t("diabetes"))
+    hypertension = st.toggle(t("hypertension"))
+    high_cholesterol = st.toggle(t("high_cholesterol"))
+    smoking = st.toggle(t("smoking"))
 
-if st.button("Check My Risk", type="primary"):
+if st.button(t("check_my_risk"), type="primary"):
     patient = {
         "age": age,
         "gender_male": int(gender == "Male"),
