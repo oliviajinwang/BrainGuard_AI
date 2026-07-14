@@ -1,1 +1,7 @@
-{"accuracy": 63.2, "roc_auc": 70.2, "macro_f1": 45.7}
+{
+  "accuracy": 72.4,
+  "precision": 72.2,
+  "recall": 70.3,
+  "f1": 71.2,
+  "roc_auc": 84.5
+}
