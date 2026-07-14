@@ -13,11 +13,11 @@ According to research, about 40% of dementia cases could have been prevented or 
 
 BrainGuard AI is an educational and clinical decision-support prototype, not a diagnosis, a certified medical device, or a substitute for professional medical evaluation. Model outputs are statistical associations learned from limited research datasets, not proof of cause and effect. A **Low Risk** result does not rule out dementia, and a **High Risk** result does not mean a person has or will develop dementia. What-if comparisons illustrate model behavior only — they do not prove that making a given change would cause the displayed reduction for a real person. If you or someone you know has concerns about memory, thinking, or daily functioning, please consult a qualified physician.
 
-# Feature
+# Features
 
-* Home Page
-* Patient View
-* Clinician View
+* **Patient Portal** — quick self-service dementia risk check, patient registration, and an AI assistant for questions about results.
+* **Clinic Portal** (clinician login required) — dashboard of registered patients, patient history with CSV batch import, a two-tab (lifestyle + structural/clinical) dementia risk check, SHAP-driven explanations and personalized action plans, and downloadable PDF medical reports.
+* Risk predictions from trained XGBoost models with SHAP explainability, plus transparent validation performance (cross-validated AUC/accuracy) for each model.
 
 # Authors
 
@@ -31,9 +31,46 @@ Emma Liu
 
 # Requirements
 
+* Python 3.12
+* Dependencies listed in [requirements.txt](requirements.txt) (Streamlit, XGBoost, scikit-learn, SHAP, pandas, plotly, matplotlib, fpdf2, qrcode, openai)
+* An OpenAI API key if you want the AI Assistant / chatbot features to work — the rest of the app runs fine without one.
+
 # Quick Start
 
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. (Optional) enable the AI assistant by setting an OpenAI API key
+#    either as an environment variable...
+export OPENAI_API_KEY=sk-...
+#    ...or in .streamlit/secrets.toml
+echo 'OPENAI_API_KEY = "sk-..."' > .streamlit/secrets.toml
+
+# 3. Run the app
+streamlit run app.py
+```
+
+The app opens at `http://localhost:8501`. `database.db` (SQLite) is created automatically on first run. From the welcome screen, choose **Patient** or **Clinic** — clinicians register their own account on first login, there are no seeded demo credentials.
+
+To run the test suite:
+
+```bash
+pytest tests/ -v
+```
+
 # File Structure
+
+```
+app.py                  # entry point: role routing, session state, navigation
+views/                  # one file per page (patient portal, clinic portal, login, etc.)
+utils/                  # shared logic: db access, auth, PDF reports, charts, chatbot
+src/                    # data cleaning and prediction pipelines for the ML models
+models/                 # trained model artifacts (.pkl), SHAP explainers, metrics
+data/                   # sample/reference datasets for patient and clinician views
+tests/                  # pytest suite (auth, predictions, chatbot)
+.streamlit/config.toml  # theme configuration
+```
 
 # Notes
 
