@@ -25,8 +25,6 @@ Olivia Wang, Grade 11 (Class of 2028), International Community School, Redmond, 
 
 David Chen, Grade 11 (Class of 2028), Tabor Academy, Marion, MA
 
-Emma Liu
-
 # Video Demonstration
 
 # Requirements

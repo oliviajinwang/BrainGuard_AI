@@ -284,22 +284,47 @@ div[data-testid="stVerticalBlockBorderWrapper"] {
     line-height: 1.45;
 }
 .dp-bio {
-    margin-top: 0.85rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid rgba(20, 40, 65, 0.07);
+    margin: 1.15rem 0 0.35rem 0;
+    padding-top: 1.05rem;
+    border-top: 1px solid rgba(20, 40, 65, 0.08);
 }
 .dp-bio-label {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--ink-muted, #7A879C);
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.45rem;
 }
 .dp-bio-body {
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--ink-secondary, #445068);
+    font-size: 15.5px;
+    line-height: 1.7;
+    color: var(--ink-primary, #13203A);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    margin: 0;
+}
+.dp-bio-body.collapsed {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.st-key-dp_bio_toggle button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #3A6488 !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    padding: 0.15rem 0 !important;
+    min-height: 0 !important;
+}
+.st-key-dp_bio_toggle button:hover {
+    color: #1C3D5A !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 .dp-appt {
     display: grid;
@@ -573,6 +598,7 @@ with st.container(border=True, key="dp_profile_card"):
                     st.rerun()
 
     with hero_info:
+        biography = str(profile.get("biography") or "").strip()
         st.markdown(
             f"""
             <p class="dp-name">{escape(doctor_name)}</p>
@@ -599,6 +625,27 @@ with st.container(border=True, key="dp_profile_card"):
             """,
             unsafe_allow_html=True,
         )
+
+        if biography:
+            bio_limit = 280
+            bio_long = len(biography) > bio_limit or biography.count("\n") >= 4
+            bio_expanded = bool(st.session_state.get("dp_bio_expanded", False))
+            body_cls = "dp-bio-body" if (bio_expanded or not bio_long) else "dp-bio-body collapsed"
+            st.markdown(
+                f"""
+                <div class="dp-bio">
+                  <div class="dp-bio-label">{escape(t('biography'))}</div>
+                  <p class="{body_cls}">{escape(biography)}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if bio_long:
+                toggle_label = t("show_less") if bio_expanded else t("show_more")
+                if st.button(toggle_label, key="dp_bio_toggle"):
+                    st.session_state.dp_bio_expanded = not bio_expanded
+                    st.rerun()
+
         if not edit_mode:
             st.markdown("<div class='dp-spacer'></div>", unsafe_allow_html=True)
             edit_btn_col, _ = st.columns([1, 2])
@@ -675,8 +722,9 @@ if edit_mode:
         profile["biography"] = st.text_area(
             t("biography"),
             profile.get("biography", ""),
-            height=110,
+            height=140,
             key=f"dp_biography_{form_nonce}",
+            placeholder=t("biography_placeholder"),
         )
 
         save_col, cancel_col, _ = st.columns([1, 1, 2])
