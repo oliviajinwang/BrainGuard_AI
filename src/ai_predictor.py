@@ -22,6 +22,7 @@ from sklearn.model_selection import (
 )
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import ParameterGrid
 
 def choose_threshold(
     X_train,
@@ -220,6 +221,137 @@ def print_holdout_threshold_diagnostics(
         .to_string(index=False)
     )
 
+def select_xgboost_model(
+    X_train,
+    y_train,
+    groups_train,
+):
+    """
+    Compare a small set of XGBoost configurations using only
+    group-aware cross-validation on the training data.
+
+    The test set is not used during model selection.
+    """
+
+    parameter_grid = {
+        "n_estimators": [150, 250, 350],
+        "learning_rate": [0.03, 0.05],
+        "max_depth": [2, 3],
+        "min_child_weight": [1, 3],
+        "subsample": [0.8, 1.0],
+        "colsample_bytree": [0.8, 1.0],
+    }
+
+    cv = StratifiedGroupKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42,
+    )
+
+    rows = []
+
+    for parameters in ParameterGrid(parameter_grid):
+        candidate = xgb.XGBClassifier(
+            objective="binary:logistic",
+            eval_metric="logloss",
+
+            reg_alpha=0.1,
+            reg_lambda=1.0,
+
+            random_state=42,
+            n_jobs=-1,
+
+            **parameters,
+        )
+
+        roc_auc_scores = cross_val_score(
+            candidate,
+            X_train,
+            y_train,
+            groups=groups_train,
+            cv=cv,
+            scoring="roc_auc",
+            n_jobs=-1,
+        )
+
+        f1_scores = cross_val_score(
+            candidate,
+            X_train,
+            y_train,
+            groups=groups_train,
+            cv=cv,
+            scoring="f1",
+            n_jobs=-1,
+        )
+
+        recall_scores = cross_val_score(
+            candidate,
+            X_train,
+            y_train,
+            groups=groups_train,
+            cv=cv,
+            scoring="recall",
+            n_jobs=-1,
+        )
+
+        rows.append({
+            **parameters,
+            "mean_roc_auc": roc_auc_scores.mean(),
+            "std_roc_auc": roc_auc_scores.std(),
+            "mean_f1": f1_scores.mean(),
+            "mean_recall": recall_scores.mean(),
+        })
+
+    results = pd.DataFrame(rows)
+
+    # Prefer strong ROC-AUC first, then recall and F1.
+    results = results.sort_values(
+        ["mean_roc_auc", "mean_recall", "mean_f1"],
+        ascending=False,
+    )
+
+    print("\n🔎 Top XGBoost configurations:")
+    print(
+        results.head(10)
+        .round(3)
+        .to_string(index=False)
+    )
+
+    best = results.iloc[0]
+
+    best_model = xgb.XGBClassifier(
+        objective="binary:logistic",
+        eval_metric="logloss",
+
+        n_estimators=int(best["n_estimators"]),
+        learning_rate=float(best["learning_rate"]),
+        max_depth=int(best["max_depth"]),
+        min_child_weight=int(best["min_child_weight"]),
+        subsample=float(best["subsample"]),
+        colsample_bytree=float(best["colsample_bytree"]),
+
+        reg_alpha=0.1,
+        reg_lambda=1.0,
+
+        random_state=42,
+        n_jobs=-1,
+    )
+
+    print("\n🏆 Selected XGBoost configuration:")
+    print({
+        "n_estimators": int(best["n_estimators"]),
+        "learning_rate": float(best["learning_rate"]),
+        "max_depth": int(best["max_depth"]),
+        "min_child_weight": int(best["min_child_weight"]),
+        "subsample": float(best["subsample"]),
+        "colsample_bytree": float(best["colsample_bytree"]),
+        "CV ROC-AUC": round(float(best["mean_roc_auc"]), 3),
+        "CV Recall": round(float(best["mean_recall"]), 3),
+        "CV F1": round(float(best["mean_f1"]), 3),
+    })
+
+    return best_model
+
 def train_pure_clinical_model(clean_data_path):
     print("🤖 Loading pre-cleaned numeric dataset...")
     df = pd.read_csv(clean_data_path)
@@ -311,20 +443,22 @@ def train_pure_clinical_model(clean_data_path):
     # 3. Configure and Train the XGBoost Multi-Class Predictor
     print("🏋️ Fitting XGBoost Binary Framework...")
 
-    base_model = xgb.XGBClassifier(
-        objective="binary:logistic",
-        eval_metric="logloss",
-        n_estimators=200,
-        learning_rate=0.03,
-        max_depth=3,
-        subsample=0.8,
-        colsample_bytree=0.7,
-        reg_alpha=0.1,
-        reg_lambda=1.0,
-        random_state=42
+    print("🏋️ Selecting XGBoost model using training data only...")
+
+    base_model = select_xgboost_model(
+        X_train=X_train,
+        y_train=y_train,
+        groups_train=groups_train,
     )
 
-    base_model.fit(X_train, y_train)
+    print("\n🏋️ Training selected XGBoost model...")
+
+    base_model.fit(
+        X_train,
+        y_train,
+    )
+
+    model = base_model
 
     print("\nColumns in X_train:")
     print(X_train.columns.tolist())
@@ -334,8 +468,6 @@ def train_pure_clinical_model(clean_data_path):
 
     print("\nAny object columns?")
     print(X_train.select_dtypes(include=["object", "string"]).columns.tolist())
-
-    model = base_model
 
     decision_threshold = choose_threshold(
         X_train=X_train,
