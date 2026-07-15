@@ -16,6 +16,25 @@ if not hasattr(_db, "create_clinician"):
 if not hasattr(_i18n, "PATIENT_LANGUAGE_OPTIONS"):
     _i18n = importlib.reload(_i18n)
 
+# Same for the UI redesign's module updates. Chart modules are checked by
+# value because only their theme colors changed; result_view gained new
+# functions, so a stale copy crashes views/patient_check.py with
+# "cannot import name 'render_lifestyle_result_summary'". Chart modules
+# reload first so result_view's re-executed imports bind the fresh objects.
+import utils.cohort_chart as _cohort_chart
+import utils.gauge as _gauge
+import utils.shap_chart as _shap_chart
+import utils.result_view as _result_view
+
+if getattr(_gauge, "_BAR", None) != "#102A43":
+    _gauge = importlib.reload(_gauge)
+if getattr(_shap_chart, "COLOR_INCREASE", None) != "#A63838":
+    _shap_chart = importlib.reload(_shap_chart)
+if getattr(_cohort_chart, "COLOR_HIGH_RISK", None) != "#A63838":
+    _cohort_chart = importlib.reload(_cohort_chart)
+if not hasattr(_result_view, "render_lifestyle_result_summary"):
+    _result_view = importlib.reload(_result_view)
+
 from utils.db import get_clinician_profile, init_db, load_patient_record  # stores patient data(patient history)
 from utils.i18n import (
     PATIENT_LANGUAGE_OPTIONS,
