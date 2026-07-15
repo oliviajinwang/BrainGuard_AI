@@ -7,6 +7,7 @@ from utils.db import get_assessment_history
 from utils.i18n import t
 from utils.risk_profile import render_shared_risk_profile_fields
 from utils.patient_record import ensure_patient_record, parse_iso_date, save_patient_record_session
+from utils.response_source import latest_response_source_label
 
 # Chart ink/gridline values mirror the theme tokens in utils/layout.py
 # (Plotly cannot read CSS variables).
@@ -60,6 +61,7 @@ def _render_overview_sidebar(record: dict) -> None:
             f"<br><span class='ehr-badge'>Prediction Probability</span> {overview['confidence']:.0f}%",
             unsafe_allow_html=True,
         )
+        st.caption(f"Responses provided by: {latest_response_source_label(int(record['patient_db_id']))}")
 
 
 def _render_risk_trend(patient_db_id: int) -> None:

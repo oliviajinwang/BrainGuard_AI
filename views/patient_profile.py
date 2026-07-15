@@ -27,6 +27,7 @@ from utils.db import (
 from utils.i18n import PATIENT_LANGUAGE_OPTIONS, apply_patient_language, normalize_patient_language, t
 from utils.patient_conversation import get_patient_conversation, summarize_conversation
 from utils.patient_record import default_portal_profile, parse_iso_date
+from utils.response_source import latest_response_source_label
 
 _PROFILE_CSS = """
 <style>
@@ -388,6 +389,10 @@ if not patient_id and not pending_id:
         unsafe_allow_html=True,
     )
     st.info(t("sign_in_prompt"))
+    st.caption(
+        "A trusted family member or caregiver may help you sign in. Adding someone as a "
+        "trusted contact below does not by itself give them access to your account."
+    )
     identity = st.text_input(t("patient_id"), placeholder="e.g. P0006", key="pp_sign_in_query")
     if st.button(t("continue"), type="primary", key="pp_continue"):
         resolved = _resolve_patient_id(identity) if identity.strip() else None
@@ -617,6 +622,23 @@ if edit_mode:
                 t("email"), portal.get("emergency_email", ""), key=f"pp_em_email_{form_nonce}"
             )
 
+        st.markdown(f"##### {t('trusted_contact')}")
+        st.caption(t("trusted_contact_caption"))
+        tc1, tc2 = st.columns(2, gap="large")
+        with tc1:
+            portal["trusted_contact_name"] = st.text_input(
+                t("contact_name"), portal.get("trusted_contact_name", ""), key=f"pp_tc_name_{form_nonce}"
+            )
+            portal["trusted_contact_relationship"] = st.text_input(
+                t("relationship"), portal.get("trusted_contact_relationship", ""), key=f"pp_tc_rel_{form_nonce}"
+            )
+        with tc2:
+            portal["trusted_contact_email_or_phone"] = st.text_input(
+                t("trusted_contact_email_or_phone"),
+                portal.get("trusted_contact_email_or_phone", ""),
+                key=f"pp_tc_contact_{form_nonce}",
+            )
+
         st.markdown(f"##### {t('health_overview_edit')}")
         h1, h2 = st.columns(2)
         with h1:
@@ -733,7 +755,8 @@ with st.container(border=True):
         f"<div class='pp-row'><div class='left'>{escape(t('assessment_date'))}</div><div class='right'>{escape(str(assessment.get('date') or '—'))}</div></div>"
         f"<div class='pp-row'><div class='left'>{escape(t('risk_label'))}</div><div class='right'>{escape(str(assessment.get('label') or 'Pending'))}</div></div>"
         f"<div class='pp-row'><div class='left'>{escape(t('estimated_probability'))}</div><div class='right'>{escape(prob_text)}</div></div>"
-        f"<div class='pp-row'><div class='left'>{escape(t('assessment_type'))}</div><div class='right'>{escape(str(assessment.get('type') or '—'))}</div></div>",
+        f"<div class='pp-row'><div class='left'>{escape(t('assessment_type'))}</div><div class='right'>{escape(str(assessment.get('type') or '—'))}</div></div>"
+        f"<div class='pp-row'><div class='left'>{escape(t('response_source'))}</div><div class='right'>{escape(latest_response_source_label(int(patient_id)))}</div></div>",
         unsafe_allow_html=True,
     )
     recommendation = str(assessment.get("recommendation") or "").strip()
@@ -787,6 +810,24 @@ with st.container(border=True):
             f"<div class='pp-row'><div class='left'>{escape(t('relationship'))}</div><div class='right'>{escape(em_rel or '—')}</div></div>"
             f"<div class='pp-row'><div class='left'>{escape(t('phone_number'))}</div><div class='right'>{escape(em_phone or '—')}</div></div>"
             f"<div class='pp-row'><div class='left'>{escape(t('email'))}</div><div class='right'>{escape(em_email or '—')}</div></div>",
+            unsafe_allow_html=True,
+        )
+
+# 6b) Trusted Contact (optional, account/access support -- not medical -----
+# emergencies, and not a grant of access on its own; see caption below) ----
+st.markdown("<div class='pp-spacer'></div>", unsafe_allow_html=True)
+with st.container(border=True):
+    _section(t("trusted_contact"), t("trusted_contact_caption"))
+    tc_name = portal.get("trusted_contact_name") or ""
+    tc_rel = portal.get("trusted_contact_relationship") or ""
+    tc_contact = portal.get("trusted_contact_email_or_phone") or ""
+    if not any([tc_name, tc_rel, tc_contact]):
+        st.info(t("no_trusted_contact"))
+    else:
+        st.markdown(
+            f"<div class='pp-row'><div class='left'>{escape(t('contact_name'))}</div><div class='right'>{escape(tc_name or '—')}</div></div>"
+            f"<div class='pp-row'><div class='left'>{escape(t('relationship'))}</div><div class='right'>{escape(tc_rel or '—')}</div></div>"
+            f"<div class='pp-row'><div class='left'>{escape(t('trusted_contact_email_or_phone'))}</div><div class='right'>{escape(tc_contact or '—')}</div></div>",
             unsafe_allow_html=True,
         )
 

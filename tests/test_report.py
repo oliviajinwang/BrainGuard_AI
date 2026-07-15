@@ -59,3 +59,17 @@ def test_build_pdf_report_succeeds_for_every_recommendation_label():
         patient = {**COMPLETE_PATIENT, "prediction_label": label}
         pdf_bytes = build_pdf_report(patient)
         assert pdf_bytes.startswith(b"%PDF"), f"failed for label={label!r}"
+
+
+def test_build_pdf_report_without_response_source_label_does_not_crash():
+    # Callers that predate the response-source field (or any patient dict
+    # missing the key) must still produce a report -- falls back to
+    # "Not specified" rather than raising a KeyError.
+    pdf_bytes = build_pdf_report(COMPLETE_PATIENT)
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_build_pdf_report_includes_response_source_label_when_provided():
+    patient = {**COMPLETE_PATIENT, "response_source_label": "Clinician-assisted"}
+    pdf_bytes = build_pdf_report(patient)
+    assert pdf_bytes.startswith(b"%PDF")

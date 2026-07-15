@@ -3,8 +3,14 @@ import math
 import streamlit as st
 
 from utils.action_plan import render_lifestyle_action_plan
+from utils.db import display_id, update_assessment
 from utils.gauge import scaled_red_zone_start
 from utils.i18n import t
+from utils.response_source import (
+    current_entry_mode,
+    render_entry_mode_banner,
+    response_source_for_entry_mode,
+)
 from utils.result_view import (
     render_lifestyle_gauge_and_recommendation,
     render_lifestyle_interpretation,
@@ -61,7 +67,13 @@ st.markdown(
 def _start_new_check() -> None:
     st.session_state.pop("patient_result", None)
     st.session_state.pop("patient_inputs", None)
+    st.session_state.pop("risk_check_saved", None)
     st.session_state.risk_check_step = 1
+
+
+def _signed_in_patient_id() -> int | None:
+    patient_id = st.session_state.get("patient_portal_id") or st.session_state.get("assistant_patient_id")
+    return int(patient_id) if patient_id else None
 
 
 def _patient_inputs() -> dict:
@@ -118,8 +130,14 @@ def _render_question(step: int) -> None:
 
 def _render_questionnaire() -> None:
     st.markdown(f"<div class='bg-title'>{t('dementia_risk_check')}</div>", unsafe_allow_html=True)
+    render_entry_mode_banner()
     st.markdown(f"<div class='risk-check-intro'>{t('risk_check_intro')}</div>", unsafe_allow_html=True)
     st.caption(t("risk_check_caption"))
+    st.caption(
+        "No account is required to complete this check, there is no time limit, and your "
+        "answers are kept as you move between questions. Please only answer about yourself, "
+        "or about someone else with their permission or your appropriate authority to help them."
+    )
 
     step = int(st.session_state.risk_check_step)
     _render_question(step)
@@ -143,6 +161,60 @@ def _render_questionnaire() -> None:
                 st.rerun()
 
 
+def _render_save_or_guest_notice(result: dict, original_inputs: dict) -> None:
+    """Guests never touch the database (nothing here calls update_assessment
+    unless a signed-in patient explicitly asks to save), so the guest and
+    signed-in paths share the same prediction call above and only branch on
+    whether there's a saved record to write to."""
+    patient_id = _signed_in_patient_id()
+
+    if patient_id is None:
+        with st.container(border=True, key="guest_save_notice"):
+            st.markdown("**This result is not saved.**")
+            st.caption(
+                "Guest results exist only in this browser session and are not stored or "
+                "tracked. To save this result and see how it changes over time, create a "
+                "patient account or sign in -- a trusted support person can help with either."
+            )
+            link_col1, link_col2 = st.columns(2)
+            with link_col1:
+                st.page_link("views/register_patient.py", label="Create an account", icon=":material/person_add:", width="stretch")
+            with link_col2:
+                st.page_link("views/patient_profile.py", label="Sign in to save results", icon=":material/login:", width="stretch")
+        return
+
+    if st.session_state.get("risk_check_saved"):
+        st.success(f"Saved to your account ({display_id(patient_id)}).", icon=":material/check_circle:")
+        return
+
+    with st.container(border=True, key="patient_save_notice"):
+        st.markdown("**Save this result to your account?**")
+        st.caption("This adds it to your saved history so you and your care team can see changes over time.")
+        if st.button("Save this result", type="primary", key="risk_check_save_button"):
+            # patients-table columns only -- original_inputs also carries
+            # gender_male, a model input with no matching column.
+            fields = {
+                "age": original_inputs["age"],
+                "education_years": original_inputs["education_years"],
+                "diabetes": original_inputs["diabetes"],
+                "hypertension": original_inputs["hypertension"],
+                "high_cholesterol": original_inputs["high_cholesterol"],
+                "smoking": original_inputs["smoking"],
+            }
+            update_assessment(
+                patient_id,
+                "Lifestyle",
+                fields,
+                result["label"],
+                result["confidence"],
+                risk_percent=result["risk"],
+                modified_by=display_id(patient_id),
+                response_source=response_source_for_entry_mode(current_entry_mode()),
+            )
+            st.session_state.risk_check_saved = True
+            st.rerun()
+
+
 def _render_result() -> None:
     result = st.session_state["patient_result"]
     original_inputs = st.session_state["patient_inputs"]
@@ -151,6 +223,7 @@ def _render_result() -> None:
     lifestyle_axis_max = min(100.0, math.ceil(MAX_REACHABLE_RISK / 5) * 5)
 
     st.markdown("<div class='bg-title'>Your lifestyle screening result</div>", unsafe_allow_html=True)
+    render_entry_mode_banner()
     st.caption("Review the summary first, then explore the model detail below if it is helpful.")
     render_lifestyle_result_summary(result, original_inputs)
     st.info(
@@ -158,6 +231,8 @@ def _render_result() -> None:
         "everyday lifestyle factors only—it can't detect or rule out dementia, and it "
         "doesn't replace a doctor's evaluation."
     )
+
+    _render_save_or_guest_notice(result, original_inputs)
 
     render_lifestyle_gauge_and_recommendation(
         result, lifestyle_threshold_pct, lifestyle_red_zone_start,

@@ -343,6 +343,8 @@ hr {
 .bg-status-monitor { color:#6C4B06; background:#FFF4D6; border:1px solid #E6CD8C; }
 .bg-status-stable { color:#1D5B40; background:#E7F3EB; border:1px solid #B8D7C1; }
 .bg-status-pending { color:#465967; background:#EAF0F3; border:1px solid #C7D5DC; }
+.bg-entry-mode-banner { display:block; padding:10px 14px; margin:0 0 16px; border-radius:var(--radius-md); background:var(--brand-teal-soft); color:var(--ink-primary); font-size:14px; border:1px solid var(--border); }
+.bg-entry-mode-banner strong { color:var(--ink-primary); }
 
 /* Role cards and question cards use stable keyed containers. */
 .st-key-role_self_card, .st-key-role_caregiver_card, .st-key-role_clinic_card,

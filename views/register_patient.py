@@ -4,6 +4,7 @@ import streamlit as st
 
 from utils.db import display_id, insert_patient, set_patient_pin
 from utils.i18n import t
+from utils.response_source import render_entry_mode_banner
 from utils.ui import render_step_progress
 
 
@@ -156,7 +157,16 @@ def _submit_registration() -> None:
 
 
 st.markdown(f"<div class='bg-title'>{t('register_patient')}</div>", unsafe_allow_html=True)
+render_entry_mode_banner()
 st.markdown(f"<div class='bg-subtitle'>{t('register_intro')}</div>", unsafe_allow_html=True)
+st.info(
+    "An account is optional -- it's only needed if you want to save and track results "
+    "over time. You can always take a Quick Risk Check first without registering."
+)
+st.caption(
+    "Please only register yourself, or someone else with their permission or your "
+    "appropriate authority to help them."
+)
 st.warning(t("register_warning"))
 
 step = int(st.session_state.register_step)

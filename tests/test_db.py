@@ -213,3 +213,102 @@ def test_patient_pin_set_and_verify_round_trip():
     assert db.patient_has_pin(patient_id) is True
     assert db.verify_patient_pin(patient_id, "1234") is True
     assert db.verify_patient_pin(patient_id, "9999") is False
+
+
+def test_update_assessment_persists_response_source():
+    patient_id = _register()
+    db.update_assessment(
+        patient_id, "Lifestyle", {"age": 70}, "High Risk", 73.5,
+        risk_percent=73.5, response_source="patient_and_support",
+    )
+
+    history = db.get_assessment_history(patient_id)
+    assert history.iloc[0]["response_source"] == "patient_and_support"
+
+
+def test_update_assessment_without_response_source_stores_null():
+    # Existing callers that don't pass response_source (and any future ones
+    # that omit it) must keep working exactly as before.
+    patient_id = _register()
+    db.update_assessment(patient_id, "Lifestyle", {"age": 70}, "Low Risk", 60.0, risk_percent=12.0)
+
+    history = db.get_assessment_history(patient_id)
+    value = history.iloc[0]["response_source"]
+    assert value is None or value != value  # NaN from pandas' NULL handling
+
+
+def test_legacy_assessment_history_rows_without_response_source_column_still_load():
+    # Simulates a database created before this migration: a row inserted
+    # directly via the pre-migration column list, with no response_source
+    # value at all. init_db()'s ALTER TABLE must have already widened the
+    # table so this insert (and later reads) don't fail.
+    patient_id = _register()
+    conn = db.get_connection()
+    conn.execute(
+        "INSERT INTO assessment_history "
+        "(patient_id, assessment_type, prediction_label, confidence, risk_percent, recorded_at, recorded_by) "
+        "VALUES (?, 'Lifestyle', 'Low Risk', 60.0, 12.0, '2020-01-01T00:00:00', 'legacy_user')",
+        (patient_id,),
+    )
+    conn.commit()
+    conn.close()
+    db.get_assessment_history.clear()
+
+    history = db.get_assessment_history(patient_id)
+    assert len(history) == 1
+    value = history.iloc[0]["response_source"]
+    assert value is None or value != value  # NaN
+
+    from utils.response_source import latest_response_source_label
+
+    assert latest_response_source_label(patient_id) == "Not specified"
+
+
+def test_default_portal_profile_includes_trusted_contact_fields():
+    from utils.patient_record import default_portal_profile
+
+    profile = default_portal_profile()
+    assert profile["trusted_contact_name"] == ""
+    assert profile["trusted_contact_relationship"] == ""
+    assert profile["trusted_contact_email_or_phone"] == ""
+
+
+def test_load_patient_record_backfills_trusted_contact_fields_for_legacy_records():
+    # Simulates a record saved before trusted-contact fields existed: an
+    # extended_record JSON blob whose portal_profile predates those keys.
+    patient_id = _register(full_name="Legacy Record Patient")
+    conn = db.get_connection()
+    row = conn.execute("SELECT extended_record FROM patients WHERE id = ?", (patient_id,)).fetchone()
+    import json as _json
+
+    legacy_record = _json.loads(row["extended_record"])
+    del legacy_record["portal_profile"]["trusted_contact_name"]
+    del legacy_record["portal_profile"]["trusted_contact_relationship"]
+    del legacy_record["portal_profile"]["trusted_contact_email_or_phone"]
+    conn.execute(
+        "UPDATE patients SET extended_record = ? WHERE id = ?",
+        (_json.dumps(legacy_record), patient_id),
+    )
+    conn.commit()
+    conn.close()
+
+    record = db.load_patient_record(patient_id)
+    portal = record["portal_profile"]
+    assert portal["trusted_contact_name"] == ""
+    assert portal["trusted_contact_relationship"] == ""
+    assert portal["trusted_contact_email_or_phone"] == ""
+
+
+def test_save_patient_record_round_trip_persists_trusted_contact_fields():
+    patient_id = _register()
+    record = db.load_patient_record(patient_id)
+    record["portal_profile"]["trusted_contact_name"] = "Alex Smith"
+    record["portal_profile"]["trusted_contact_relationship"] = "Daughter"
+    record["portal_profile"]["trusted_contact_email_or_phone"] = "alex@example.com"
+
+    db.save_patient_record(patient_id, record)
+
+    reloaded = db.load_patient_record(patient_id)
+    assert reloaded["portal_profile"]["trusted_contact_name"] == "Alex Smith"
+    assert reloaded["portal_profile"]["trusted_contact_relationship"] == "Daughter"
+    assert reloaded["portal_profile"]["trusted_contact_email_or_phone"] == "alex@example.com"

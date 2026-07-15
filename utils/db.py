@@ -100,6 +100,15 @@ def _ensure_clinician_profile_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE clinicians ADD COLUMN profile_json TEXT")
 
 
+def _ensure_response_source_column(conn: sqlite3.Connection) -> None:
+    # Nullable by design: existing assessment_history rows predate this
+    # field and must keep loading as-is, displayed as "Not specified"
+    # (see utils/response_source.response_source_label).
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(assessment_history)")}
+    if "response_source" not in columns:
+        conn.execute("ALTER TABLE assessment_history ADD COLUMN response_source TEXT")
+
+
 def init_db() -> None:
     conn = get_connection()
     conn.execute(_SCHEMA)
@@ -107,6 +116,7 @@ def init_db() -> None:
     conn.execute(_ASSESSMENT_HISTORY_SCHEMA)
     _ensure_extended_record_column(conn)
     _ensure_clinician_profile_column(conn)
+    _ensure_response_source_column(conn)
     conn.commit()
     conn.close()
 
@@ -527,6 +537,7 @@ def update_assessment(
     confidence: float,
     risk_percent: float | None = None,
     modified_by: str | None = None,
+    response_source: str | None = None,
 ) -> None:
     now = datetime.now().isoformat()
     conn = get_connection()
@@ -546,9 +557,9 @@ def update_assessment(
     conn.execute(f"UPDATE patients SET {set_clause} WHERE id = :id", params)
     conn.execute(
         "INSERT INTO assessment_history "
-        "(patient_id, assessment_type, prediction_label, confidence, risk_percent, recorded_at, recorded_by) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (patient_id, assessment_type, prediction_label, confidence, risk_percent, now, modified_by),
+        "(patient_id, assessment_type, prediction_label, confidence, risk_percent, recorded_at, recorded_by, response_source) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (patient_id, assessment_type, prediction_label, confidence, risk_percent, now, modified_by, response_source),
     )
     conn.commit()
     conn.close()

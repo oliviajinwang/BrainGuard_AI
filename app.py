@@ -98,6 +98,10 @@ st.session_state.setdefault("patient_record", None)
 st.session_state.setdefault("patient_record_id", None)
 st.session_state.setdefault("history_last_selection", None)
 st.session_state.setdefault("reload_patient_record", False)
+# Safety default for sessions that reach role="patient" without going
+# through views/role_select.py (e.g. tests, deep links) -- defaults to the
+# least assumption (self) rather than guessing a support relationship.
+st.session_state.setdefault("patient_entry_mode", "self")
 
 
 def _start_switch_role():
@@ -136,6 +140,8 @@ if st.session_state._switching == "commit":
     st.session_state.pp_edit_mode = False
     st.session_state.history_last_selection = None
     st.session_state.reload_patient_record = True
+    st.session_state.patient_entry_mode = "self"
+    st.session_state.pop("risk_check_saved", None)
     st.session_state._switching = None
 
 # st.session_state.role is now final for this run -- safe to decide whether

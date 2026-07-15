@@ -9,6 +9,7 @@ from utils.cohort_ranges import render_structural_input_summary, structural_coho
 from utils.db import display_id, fetch_all_patients, update_assessment
 from utils.gauge import CLASS_GAUGE_LEGEND, render_class_gauge, scaled_red_zone_start
 from utils.i18n import t
+from utils.response_source import RESPONSE_SOURCE_CLINICIAN_ASSISTED
 from utils.result_view import (
     render_lifestyle_gauge_and_recommendation,
     render_lifestyle_interpretation,
@@ -120,6 +121,7 @@ with tab_lifestyle:
         render_lifestyle_validation_performance(LIFESTYLE_METRICS, audience="clinician")
 
         if selected_patient_id is not None:
+            st.caption("This assessment is run by clinic staff and will be recorded as **clinician-assisted**.")
             if st.session_state.get("confirm_save_lifestyle_id") != selected_patient_id:
                 if st.button("Save to Patient Record", key="save_lifestyle"):
                     st.session_state.confirm_save_lifestyle_id = selected_patient_id
@@ -132,6 +134,7 @@ with tab_lifestyle:
                         update_assessment(
                             selected_patient_id, "Lifestyle", result["fields"], result["label"], result["confidence"],
                             risk_percent=result["risk"], modified_by=st.session_state.get("clinic_user"),
+                            response_source=RESPONSE_SOURCE_CLINICIAN_ASSISTED,
                         )
                         st.session_state.pop("confirm_save_lifestyle_id", None)
                         st.success("Saved to patient record.")
@@ -425,6 +428,7 @@ with tab_structural:
         )
 
         if selected_patient_id is not None:
+            st.caption("This assessment is run by clinic staff and will be recorded as **clinician-assisted**.")
             if st.session_state.get("confirm_save_structural_id") != selected_patient_id:
                 if st.button("Save to Patient Record", key="save_structural"):
                     st.session_state.confirm_save_structural_id = selected_patient_id
@@ -437,6 +441,7 @@ with tab_structural:
                         update_assessment(
                             selected_patient_id, "Structural", result["fields"], result["label"], result["confidence"],
                             risk_percent=result["risk"], modified_by=st.session_state.get("clinic_user"),
+                            response_source=RESPONSE_SOURCE_CLINICIAN_ASSISTED,
                         )
                         st.session_state.pop("confirm_save_structural_id", None)
                         st.success("Saved to patient record.")

@@ -3,6 +3,7 @@ import streamlit as st
 from utils.db import display_id, fetch_all_patients, get_patient
 from utils.i18n import t
 from utils.report import build_pdf_report
+from utils.response_source import latest_response_source_label
 
 st.markdown(f"<div class='bg-section'>{t('medical_report')}</div>", unsafe_allow_html=True)
 st.write(t("medical_report_prompt"))
@@ -17,6 +18,8 @@ else:
     patient_id = options[selected_label]
     patient = get_patient(patient_id)
 
+    response_source_label = latest_response_source_label(patient_id)
+
     st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
@@ -28,11 +31,12 @@ else:
             t("col_confidence"),
             f"{patient['confidence']:.1f}%" if patient["confidence"] is not None else "-",
         )
+    st.caption(f"{t('response_source')}: {response_source_label}")
 
     if patient["prediction_label"] is None:
         st.warning(t("no_assessment_yet"))
     else:
-        pdf_bytes = build_pdf_report(patient)
+        pdf_bytes = build_pdf_report({**patient, "response_source_label": response_source_label})
         st.download_button(
             t("download_pdf"),
             data=pdf_bytes,

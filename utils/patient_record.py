@@ -13,6 +13,14 @@ def default_portal_profile() -> dict[str, Any]:
         "emergency_relationship": "",
         "emergency_phone": "",
         "emergency_email": "",
+        # Optional trusted contact for account/access support -- distinct
+        # from the emergency contact above, which is for urgent medical
+        # situations. Storing a trusted contact here does not itself grant
+        # that person any access to health information (see the
+        # patient_profile.py caption shown alongside these fields).
+        "trusted_contact_name": "",
+        "trusted_contact_relationship": "",
+        "trusted_contact_email_or_phone": "",
     }
 
 
