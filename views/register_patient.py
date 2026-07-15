@@ -7,19 +7,29 @@ from utils.i18n import t
 from utils.ui import render_step_progress
 
 
-_STATE_KEYS = (
-    "register_full_name",
-    "register_gender",
-    "register_age",
-    "register_phone",
-    "register_email",
-    "register_address",
-    "register_emergency",
-    "register_pin",
-    "register_pin_confirm",
-)
+_STATE_DEFAULTS = {
+    "register_full_name": "",
+    "register_gender": "Female",
+    "register_age": 60,
+    "register_phone": "",
+    "register_email": "",
+    "register_address": "",
+    "register_emergency": "",
+    "register_pin": "",
+    "register_pin_confirm": "",
+}
+_STATE_KEYS = tuple(_STATE_DEFAULTS)
 
 st.session_state.setdefault("register_step", 1)
+
+# Streamlit drops a widget's session-state entry when that widget isn't
+# rendered during a run, so values typed on earlier steps would vanish by
+# the time step 3 submits (AttributeError on register_full_name). Seeding
+# the keys and re-assigning them each run marks them as app state, which
+# survives the widgets unmounting between steps.
+for _key, _default in _STATE_DEFAULTS.items():
+    st.session_state.setdefault(_key, _default)
+    st.session_state[_key] = st.session_state[_key]
 
 st.markdown(
     """
@@ -68,7 +78,9 @@ def _step_one() -> None:
             key="register_gender",
         )
     with col2:
-        age = st.number_input(t("age"), min_value=18, max_value=110, value=60, key="register_age")
+        # No value= here: session state (seeded above) supplies it, and passing
+        # both makes Streamlit log a "default value + Session State" warning.
+        age = st.number_input(t("age"), min_value=18, max_value=110, key="register_age")
         st.caption(f"Age: {age} years")
 
 
