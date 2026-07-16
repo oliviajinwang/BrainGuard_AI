@@ -34,7 +34,7 @@ Yuki Mach Grade 11 (class of 2028), Intfernational school in Hawaii, Hauula -- U
 ## Welcome Page
 
 <p align="center">
-  <img src="assets/screenshots/home.png" alt="BrainGuard AI Welcome Page" width="900"/>
+  <img src="assets/home.png" alt="BrainGuard AI Welcome Page" width="900"/>
 </p>
 
 ---
@@ -42,7 +42,7 @@ Yuki Mach Grade 11 (class of 2028), Intfernational school in Hawaii, Hauula -- U
 ## Patient Risk Assessment
 
 <p align="center">
-  <img src="assets/screenshots/patient-risk.png" alt="Patient Risk Assessment" width="900"/>
+  <img src="assets/patient-risk.png" alt="Patient Risk Assessment" width="900"/>
 </p>
 
 ---
@@ -50,7 +50,7 @@ Yuki Mach Grade 11 (class of 2028), Intfernational school in Hawaii, Hauula -- U
 ## Clinician Dashboard
 
 <p align="center">
-  <img src="assets/screenshots/clinician-dashboard.png" alt="Clinician Dashboard" width="900"/>
+  <img src="assets/clinician-dashboard.png" alt="Clinician Dashboard" width="900"/>
 </p>
 
 
