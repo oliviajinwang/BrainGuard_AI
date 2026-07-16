@@ -21,11 +21,38 @@ BrainGuard AI is an educational and clinical decision-support prototype, not a d
 
 # Authors
 
-Olivia Wang, Grade 11 (Class of 2028), International Community School, Redmond, WA
+Olivia Wang, Grade 11 (Class of 2028), International Community School, Redmond, WA -- Project Liason
 
-David Chen, Grade 11 (Class of 2028), Tabor Academy, Marion, MA
+David Chen, Grade 11 (Class of 2028), Tabor Academy, Marion, MA -- Backend Developer
 
-# Video Demonstration
+Emma Liu, Grade 11 (Class of 2028), Shanghai American School Pudong Campus -- Frontend Developer
+
+Yuki Mach Grade 11 (class of 2028), Intfernational school in Hawaii, Hauula -- UI/UX
+
+# 📸 Application Screenshots
+
+## Welcome Page
+
+<p align="center">
+  <img src="assets/screenshots/home.png" alt="BrainGuard AI Welcome Page" width="900"/>
+</p>
+
+---
+
+## Patient Risk Assessment
+
+<p align="center">
+  <img src="assets/screenshots/patient-risk.png" alt="Patient Risk Assessment" width="900"/>
+</p>
+
+---
+
+## Clinician Dashboard
+
+<p align="center">
+  <img src="assets/screenshots/clinician-dashboard.png" alt="Clinician Dashboard" width="900"/>
+</p>
+
 
 # Requirements
 
