@@ -14,6 +14,7 @@ from utils.patient_conversation import (
     get_patient_conversation,
     now_timestamp,
 )
+from utils import pin_lockout
 
 
 def _resolve_by_patient_id(text: str) -> int | None:
@@ -103,18 +104,26 @@ if pending_id and not patient_id:
 
     if patient_has_pin(pending_id):
         st.markdown(f"#### {t('enter_pin_for', name=pending_name, label=pending_label)}")
-        pin_entry = st.text_input(
-            t("pin_label"), type="password", max_chars=6, key="assistant_pin_entry"
-        )
-        if st.button(t('unlock'), type='primary'):
-            if verify_patient_pin(pending_id, pin_entry):
-                _load_patient_chat(pending_id)
-                st.session_state.assistant_pending_patient_id = None
-                st.session_state.patient_portal_id = int(pending_id)
-                st.session_state.pop("_patient_language_loaded_for", None)
-                st.rerun()
-            else:
-                st.error(t('incorrect_pin'))
+        if pin_lockout.seconds_remaining(pending_id) > 0:
+            st.error(t("pin_locked"))
+        else:
+            pin_entry = st.text_input(
+                t("pin_label"), type="password", max_chars=6, key="assistant_pin_entry"
+            )
+            if st.button(t('unlock'), type='primary'):
+                if verify_patient_pin(pending_id, pin_entry):
+                    pin_lockout.record_success(pending_id)
+                    _load_patient_chat(pending_id)
+                    st.session_state.assistant_pending_patient_id = None
+                    st.session_state.patient_portal_id = int(pending_id)
+                    st.session_state.pop("_patient_language_loaded_for", None)
+                    st.rerun()
+                else:
+                    pin_lockout.record_failure(pending_id)
+                    if pin_lockout.seconds_remaining(pending_id) > 0:
+                        st.error(t("pin_locked"))
+                    else:
+                        st.error(t('incorrect_pin'))
     else:
         st.markdown(f"#### {t('setup_pin_for', name=pending_name, label=pending_label)}")
         st.caption(t('legacy_pin_caption'))

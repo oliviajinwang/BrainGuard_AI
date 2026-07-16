@@ -28,6 +28,7 @@ from utils.i18n import PATIENT_LANGUAGE_OPTIONS, apply_patient_language, normali
 from utils.patient_conversation import get_patient_conversation, summarize_conversation
 from utils.patient_record import default_portal_profile, parse_iso_date
 from utils.response_source import latest_response_source_label
+from utils import pin_lockout
 
 _PROFILE_CSS = """
 <style>
@@ -367,6 +368,7 @@ def _sign_out() -> None:
 
 st.markdown(_PROFILE_CSS, unsafe_allow_html=True)
 st.markdown("<div class='pp-page'>", unsafe_allow_html=True)
+st.warning(t("profile_warning"))
 
 st.session_state.setdefault("patient_portal_id", None)
 st.session_state.setdefault("patient_portal_pending_id", None)
@@ -419,15 +421,24 @@ if pending_id and not patient_id:
     name = pending_row["full_name"]
     if patient_has_pin(pending_id):
         st.markdown(f"#### {t('enter_pin_for', name=name, label=label)}")
-        pin_entry = st.text_input(t("pin_label"), type="password", max_chars=6, key="pp_pin_entry")
-        if st.button(t("unlock"), type="primary", key="pp_unlock"):
-            if verify_patient_pin(pending_id, pin_entry):
-                st.session_state.patient_portal_id = int(pending_id)
-                st.session_state.patient_portal_pending_id = None
-                st.session_state.assistant_patient_id = int(pending_id)
-                st.session_state.pop("_patient_language_loaded_for", None)
-                st.rerun()
-            st.error(t("incorrect_pin"))
+        if pin_lockout.seconds_remaining(pending_id) > 0:
+            st.error(t("pin_locked"))
+        else:
+            pin_entry = st.text_input(t("pin_label"), type="password", max_chars=6, key="pp_pin_entry")
+            if st.button(t("unlock"), type="primary", key="pp_unlock"):
+                if verify_patient_pin(pending_id, pin_entry):
+                    pin_lockout.record_success(pending_id)
+                    st.session_state.patient_portal_id = int(pending_id)
+                    st.session_state.patient_portal_pending_id = None
+                    st.session_state.assistant_patient_id = int(pending_id)
+                    st.session_state.pop("_patient_language_loaded_for", None)
+                    st.rerun()
+                else:
+                    pin_lockout.record_failure(pending_id)
+                    if pin_lockout.seconds_remaining(pending_id) > 0:
+                        st.error(t("pin_locked"))
+                    else:
+                        st.error(t("incorrect_pin"))
     else:
         st.markdown(f"#### {t('setup_pin_for', name=name, label=label)}")
         new_pin = st.text_input(t("set_pin_label"), type="password", max_chars=6, key="pp_new_pin")
