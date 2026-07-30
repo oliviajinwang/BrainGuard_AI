@@ -83,8 +83,6 @@ Models are implemented using **XGBoost** and explained using **SHAP (SHapley Add
 
 # Model Performance
 
-# Model Performance
-
 BrainGuard AI uses separate models for lifestyle-based screening and clinician-facing assessment. The results below come from held-out evaluation data and should not be interpreted as clinical performance.
 
 | Model | Assessment | Test Samples | Positive Samples | Accuracy | Precision | Recall | F1 Score | ROC-AUC | Decision Threshold |
